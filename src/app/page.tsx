@@ -1,65 +1,79 @@
-import Image from "next/image";
+import Link from "next/link";
+import { getActiveGames } from "@/lib/games";
+import { prisma } from "@/lib/prisma";
+import { FORMAT_LABEL } from "@/lib/games";
+import { Pill } from "@/components/ui";
 
-export default function Home() {
+export const dynamic = "force-dynamic";
+
+export default async function HomePage() {
+  const games = await getActiveGames();
+
+  const counts = await Promise.all(
+    games.map(async (g) => ({
+      teams: await prisma.team.count({ where: { gameId: g.id } }),
+    }))
+  );
+
   return (
-    <div className="flex flex-col flex-1 items-center justify-center bg-zinc-50 font-sans dark:bg-black">
-      <main className="flex flex-1 w-full max-w-3xl flex-col items-center justify-between py-32 px-16 bg-white dark:bg-black sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={100}
-          height={20}
-          priority
-        />
-        <div className="flex flex-col items-center gap-6 text-center sm:items-start sm:text-left">
-          <h1 className="max-w-xs text-3xl font-semibold leading-10 tracking-tight text-black dark:text-zinc-50">
-            To get started, edit the page.tsx file.
-          </h1>
-          <p className="max-w-md text-lg leading-8 text-zinc-600 dark:text-zinc-400">
-            Looking for a starting point or more instructions? Head over to{" "}
-            <a
-              href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
+    <div className="max-w-6xl mx-auto px-4">
+      <section className="py-14 sm:py-20 text-center">
+        <Pill>Rajsima League · แพลตฟอร์มอีสปอร์ตหลายเกม</Pill>
+        <h1 className="mt-5 text-4xl sm:text-6xl font-extrabold tracking-tight leading-tight">
+          <span className="rsl-gradient-text">Rajsima League</span>
+          <br />
+          เลือกเกมที่คุณติดตาม
+        </h1>
+        <p className="mt-5 text-[color:var(--text-dim)] max-w-2xl mx-auto">
+          แต่ละเกมมีระบบการแข่งขัน ทีม ตาราง และข่าวสารแยกกัน
+          เลือกเกมด้านล่างเพื่อเข้าสู่หน้าเฉพาะของเกมนั้น
+        </p>
+      </section>
+
+      <section className="pb-16">
+        <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-5">
+          {games.map((g, i) => (
+            <Link
+              key={g.id}
+              href={`/${g.slug}`}
+              className="rsl-card p-6 hover:bg-[color:var(--card-hover)] transition-all hover:-translate-y-0.5 flex flex-col group"
+              style={{ borderTop: `3px solid ${g.color}` }}
             >
-              Templates
-            </a>{" "}
-            or the{" "}
-            <a
-              href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Learning
-            </a>{" "}
-            center.
+              <div className="flex items-center gap-3">
+                <span
+                  className="inline-grid place-items-center w-14 h-14 rounded-xl font-extrabold text-xl shrink-0"
+                  style={{ background: g.color, color: "#0b0f1a" }}
+                >
+                  {g.shortName}
+                </span>
+                <div>
+                  <h2 className="text-2xl font-extrabold">{g.name}</h2>
+                  <span className="text-xs text-[color:var(--text-dim)]">
+                    {FORMAT_LABEL[g.format]}
+                  </span>
+                </div>
+              </div>
+              {g.tagline && (
+                <p className="mt-4 text-sm text-[color:var(--text-dim)] flex-1">
+                  {g.tagline}
+                </p>
+              )}
+              <div className="mt-5 flex items-center justify-between">
+                <Pill>{counts[i].teams} ทีม</Pill>
+                <span className="text-sm font-semibold" style={{ color: g.color }}>
+                  เข้าสู่เกม →
+                </span>
+              </div>
+            </Link>
+          ))}
+        </div>
+
+        {games.length === 0 && (
+          <p className="text-center text-[color:var(--text-dim)]">
+            ยังไม่มีเกม — เพิ่มได้ที่ระบบหลังบ้าน
           </p>
-        </div>
-        <div className="flex flex-col gap-4 text-base font-medium sm:flex-row">
-          <a
-            className="flex h-12 w-full items-center justify-center gap-2 rounded-full bg-foreground px-5 text-background transition-colors hover:bg-[#383838] dark:hover:bg-[#ccc] md:w-[158px]"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={16}
-              height={16}
-            />
-            Deploy Now
-          </a>
-          <a
-            className="flex h-12 w-full items-center justify-center rounded-full border border-solid border-black/[.08] px-5 transition-colors hover:border-transparent hover:bg-black/[.04] dark:border-white/[.145] dark:hover:bg-[#1a1a1a] md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Documentation
-          </a>
-        </div>
-      </main>
+        )}
+      </section>
     </div>
   );
 }

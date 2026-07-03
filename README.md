@@ -1,36 +1,71 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Rajsima League (RSL) — แพลตฟอร์มอีสปอร์ตหลายเกม
 
-## Getting Started
+เว็บไซต์ทางการของ Rajsima League — **รองรับหลายเกม แต่ละเกมแยกระบบกัน**
+ประชาสัมพันธ์ข่าวสาร จัดทีม ตารางการแข่งขัน ส่งผลการแข่งขัน และระบบหลังบ้านที่
+**อัปเดตสาย/ตารางคะแนนอัตโนมัติเมื่อแอดมินกดอนุมัติผล**
 
-First, run the development server:
+## เกมเริ่มต้น (เพิ่มได้ที่หลังบ้าน)
+| เกม | รูปแบบ | การคิดผล |
+|-----|--------|----------|
+| **RoV** | สายแพ้คัดออก (Bracket) | แมตช์ 1v1 Best-of-N ผู้ชนะเลื่อนสายอัตโนมัติ |
+| **Free Fire** | Battle Royale แบ่งกลุ่มละ 12 ทีม | แต่ละล็อบบี้คิดแต้ม **อันดับ + คิลล์** รวมเป็นตารางคะแนนกลุ่ม |
+| **FC Online** | สายแพ้คัดออก (Bracket) | แมตช์ 1v1 Best-of-N ผู้ชนะเลื่อนสายอัตโนมัติ |
 
+หน้าแรกเป็น **ตัวเลือกเกม** — เข้าไปในเกมแล้วทุกอย่าง (ข่าว/ทีม/ตาราง/ส่งผล) จะแยกเฉพาะเกมนั้น
+
+## เทคโนโลยี
+- **Next.js 16** (App Router) + **React 19** + **TypeScript**
+- **Tailwind CSS v4** (ธีมมืดสไตล์อีสปอร์ต)
+- **Prisma 6 + SQLite** (เปลี่ยนเป็น PostgreSQL ตอน deploy ได้)
+- Auth แอดมินแบบ session cookie (bcrypt + jose JWT)
+
+## เริ่มต้นใช้งาน
 ```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+npm install
+cp .env.example .env      # แก้ค่า AUTH_SECRET ให้เป็นค่าสุ่ม
+npm run db:push           # สร้างตารางในฐานข้อมูล
+npm run db:seed           # ใส่ 3 เกม + บัญชีแอดมิน (ยังไม่มีทีม)
+npm run dev               # เปิด http://localhost:3000
+```
+**บัญชีแอดมินเริ่มต้น:** `admin` / `rsladmin123`
+
+## โครงสร้างหน้าเว็บ
+
+### หน้าบ้าน
+- `/` — เลือกเกม
+- `/[game]` — ภาพรวมเกม (ข่าว + แมตช์/ล็อบบี้ + คะแนน)
+- `/[game]/news` · `/[game]/news/[slug]` — ข่าวเฉพาะเกม
+- `/[game]/teams` · `/[game]/teams/[id]` — ทีม + ผู้เล่น
+- `/[game]/bracket` — สายแพ้คัดออก (เกมแบบ Bracket)
+- `/[game]/matches` · `/[game]/standings` — ล็อบบี้ + ตารางคะแนน (เกมแบบ Battle Royale)
+- `/[game]/submit` — ส่งผล (ฟอร์มปรับตามรูปแบบเกม)
+
+### ระบบหลังบ้าน (`/admin`)
+- **ตรวจผล** — อนุมัติ/ปฏิเสธผลทั้งแบบ Bracket และ Battle Royale
+- **เกม** — เพิ่มเกมใหม่ / เปิด-ปิดใช้งาน
+- **ทีม** — เพิ่มทีม จัดกลุ่ม/seed จัดการผู้เล่น (แยกตามเกม)
+- **สาย (RoV/FC)** — สร้างสายอัตโนมัติจากทีม + บันทึกผลรายแมตช์
+- **ล็อบบี้ (FF)** — สร้างล็อบบี้ + กรอกผลอันดับ/คิลล์
+- **ข่าว** — เพิ่ม/ลบข่าว (เลือกเกม)
+
+## กลไกการอัปเดตอัตโนมัติ (หัวใจของระบบ)
+เมื่อแอดมิน**อนุมัติ**ผล (ทำใน transaction เดียว):
+- **Bracket** (`src/lib/matches.ts`): บันทึกผู้ชนะ → ตั้งแมตช์ `COMPLETED` → **ดันผู้ชนะเข้าสายถัดไป**
+- **Battle Royale** (`src/lib/br.ts`): คิดแต้ม `อันดับ + คิลล์` ทุกทีม → บันทึกผลล็อบบี้ → **ตารางคะแนนกลุ่มอัปเดต**
+- การสร้างสาย (`src/lib/bracket.ts`) จัดการ **บาย (bye)** อัตโนมัติเมื่อจำนวนทีมไม่เป็นเลขยกกำลัง 2
+
+## การเพิ่มเกมใหม่ในอนาคต
+ไปที่ `/admin/games` → กรอกชื่อ/ตัวย่อ/slug/รูปแบบ (Bracket หรือ Battle Royale) → เกมใหม่จะมีหน้าเว็บและระบบครบทันที
+
+## คำสั่งที่ใช้บ่อย
+```bash
+npm run dev         # dev server
+npm run build       # production build
+npm run db:studio   # เปิด Prisma Studio ดู/แก้ข้อมูล
+npm run db:seed     # รีเซ็ตข้อมูล (3 เกม + แอดมิน)
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
-
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
-
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
-
-## Learn More
-
-To learn more about Next.js, take a look at the following resources:
-
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
-
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
-
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+## หมายเหตุก่อน deploy จริง
+- เปลี่ยน `AUTH_SECRET` เป็นค่าสุ่มยาว และเปลี่ยนรหัสแอดมิน
+- แนะนำเปลี่ยน datasource เป็น **PostgreSQL** ก่อน deploy บน Vercel
+- แต้มอันดับ Free Fire ปรับได้ที่ `PLACEMENT_POINTS` ใน `src/lib/br.ts`

@@ -1,0 +1,209 @@
+// Rajsima League (RSL) — Multi-game esports platform
+// แต่ละเกมแยกระบบกัน:
+//   - RoV / FC Online  => BRACKET (แพ้คัดออก, แมตช์ 1v1)
+//   - Free Fire        => BATTLE_ROYALE (แบ่งกลุ่มละ 12 ทีม, คิดคะแนนอันดับ+คิลล์)
+// เพิ่มเกมใหม่ได้โดยเพิ่มเรคคอร์ด Game
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id           String   @id @default(cuid())
+  username     String   @unique
+  passwordHash String
+  displayName  String
+  role         String   @default("ADMIN") // ADMIN | EDITOR
+  createdAt    DateTime @default(now())
+
+  reviewedSubmissions   ResultSubmission[]   @relation("ReviewedBy")
+  reviewedBrSubmissions BrSubmission[]       @relation("BrReviewedBy")
+  news                  News[]
+}
+
+model Game {
+  id          String   @id @default(cuid())
+  slug        String   @unique // rov | freefire | fconline
+  name        String
+  shortName   String
+  format      String // BRACKET | BATTLE_ROYALE
+  groupSize   Int? // จำนวนทีมต่อกลุ่ม (Free Fire = 12)
+  color       String   @default("#f5c518")
+  tagline     String?
+  description  String?
+  order        Int      @default(0)
+  active       Boolean  @default(true)
+  createdAt    DateTime @default(now())
+
+  teams    Team[]
+  matches  Match[]
+  brMatches BrMatch[]
+  news     News[]
+}
+
+model Team {
+  id        String   @id @default(cuid())
+  game      Game     @relation(fields: [gameId], references: [id], onDelete: Cascade)
+  gameId    String
+  name      String
+  tag       String // ตัวย่อทีม
+  logoUrl   String?
+  groupName String? // A, B, ... (ใช้กับ Battle Royale หรือรอบแบ่งกลุ่ม)
+  seed      Int? // ลำดับวางสาย (bracket)
+  createdAt DateTime @default(now())
+
+  players     Player[]
+  homeMatches Match[]        @relation("HomeTeam")
+  awayMatches Match[]        @relation("AwayTeam")
+  wonMatches  Match[]        @relation("WinnerTeam")
+  brResults   BrTeamResult[]
+  brRows      BrSubmissionRow[]
+
+  @@unique([gameId, name])
+  @@unique([gameId, tag])
+}
+
+model Player {
+  id        String  @id @default(cuid())
+  team      Team    @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  teamId    String
+  nickname  String
+  realName  String?
+  role      String?
+  isCaptain Boolean @default(false)
+}
+
+// ===================== BRACKET (RoV / FC Online) =====================
+model Match {
+  id          String    @id @default(cuid())
+  game        Game      @relation(fields: [gameId], references: [id], onDelete: Cascade)
+  gameId      String
+  round       String // เช่น "รอบ 8 ทีม", "รอบรองชนะเลิศ", "รอบชิงชนะเลิศ"
+  roundOrder  Int       @default(0) // ลำดับรอบในสาย (เล็ก = รอบแรก)
+  bestOf      Int       @default(3)
+  scheduledAt DateTime?
+  status      String    @default("SCHEDULED") // SCHEDULED | PENDING | COMPLETED
+
+  homeTeam   Team?   @relation("HomeTeam", fields: [homeTeamId], references: [id])
+  homeTeamId String?
+  awayTeam   Team?   @relation("AwayTeam", fields: [awayTeamId], references: [id])
+  awayTeamId String?
+
+  homeScore Int?
+  awayScore Int?
+  winner    Team?   @relation("WinnerTeam", fields: [winnerId], references: [id])
+  winnerId  String?
+
+  // สายน็อกเอาต์: ผู้ชนะไปต่อยังแมตช์ถัดไป
+  bracketOrder  Int?
+  nextMatch     Match?  @relation("Bracket", fields: [nextMatchId], references: [id])
+  nextMatchId   String?
+  nextSlot      String? // HOME | AWAY
+  feederMatches Match[] @relation("Bracket")
+
+  submissions ResultSubmission[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model ResultSubmission {
+  id            String    @id @default(cuid())
+  match         Match     @relation(fields: [matchId], references: [id], onDelete: Cascade)
+  matchId       String
+  submitterName String
+  submitterTeam String?
+  homeScore     Int
+  awayScore     Int
+  note          String?
+  proofUrl      String?
+  status        String    @default("PENDING") // PENDING | APPROVED | REJECTED
+  adminNote     String?
+  reviewedBy    User?     @relation("ReviewedBy", fields: [reviewedById], references: [id])
+  reviewedById  String?
+  reviewedAt    DateTime?
+  createdAt     DateTime  @default(now())
+}
+
+// ===================== BATTLE ROYALE (Free Fire) =====================
+// BrMatch = 1 ล็อบบี้/1 เกม (สูงสุด groupSize ทีม)
+model BrMatch {
+  id          String    @id @default(cuid())
+  game        Game      @relation(fields: [gameId], references: [id], onDelete: Cascade)
+  gameId      String
+  groupName   String    @default("A")
+  matchNo     Int       @default(1) // เกมที่เท่าไรของกลุ่ม
+  title       String? // เช่น "Day 1 - Match 3"
+  scheduledAt DateTime?
+  status      String    @default("SCHEDULED") // SCHEDULED | PENDING | COMPLETED
+
+  results     BrTeamResult[]
+  submissions BrSubmission[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+// ผลอย่างเป็นทางการต่อทีมต่อ 1 ล็อบบี้ (หลังอนุมัติ)
+model BrTeamResult {
+  id        String  @id @default(cuid())
+  brMatch   BrMatch @relation(fields: [brMatchId], references: [id], onDelete: Cascade)
+  brMatchId String
+  team      Team    @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  teamId    String
+  placement Int // อันดับในล็อบบี้ (1 = ที่หนึ่ง)
+  kills     Int     @default(0)
+  points    Int     @default(0) // แต้มอันดับ + คิลล์ (คำนวณตอนอนุมัติ)
+
+  @@unique([brMatchId, teamId])
+}
+
+// การส่งผลทั้งล็อบบี้เพื่อรออนุมัติ
+model BrSubmission {
+  id            String    @id @default(cuid())
+  brMatch       BrMatch   @relation(fields: [brMatchId], references: [id], onDelete: Cascade)
+  brMatchId     String
+  submitterName String
+  note          String?
+  proofUrl      String?
+  status        String    @default("PENDING") // PENDING | APPROVED | REJECTED
+  adminNote     String?
+  reviewedBy    User?     @relation("BrReviewedBy", fields: [reviewedById], references: [id])
+  reviewedById  String?
+  reviewedAt    DateTime?
+  createdAt     DateTime  @default(now())
+
+  rows BrSubmissionRow[]
+}
+
+model BrSubmissionRow {
+  id           String       @id @default(cuid())
+  submission   BrSubmission @relation(fields: [submissionId], references: [id], onDelete: Cascade)
+  submissionId String
+  team         Team         @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  teamId       String
+  placement    Int
+  kills        Int          @default(0)
+}
+
+model News {
+  id          String   @id @default(cuid())
+  game        Game     @relation(fields: [gameId], references: [id], onDelete: Cascade)
+  gameId      String
+  title       String
+  slug        String   @unique
+  excerpt     String
+  content     String
+  coverUrl    String?
+  category    String   @default("ข่าวทั่วไป")
+  published   Boolean  @default(true)
+  publishedAt DateTime @default(now())
+
+  author   User?   @relation(fields: [authorId], references: [id])
+  authorId String?
+}

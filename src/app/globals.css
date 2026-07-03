@@ -1,26 +1,92 @@
 @import "tailwindcss";
 
+/* ===== RSL Esports Theme (dark) ===== */
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  --bg: #0b0f1a;
+  --bg-soft: #121826;
+  --card: #161d2e;
+  --card-hover: #1c2540;
+  --border: #26304a;
+  --text: #e8ecf6;
+  --text-dim: #97a2bd;
+  --brand: #f5c518; /* ทอง Rajsima */
+  --brand-2: #6c5ce7; /* ม่วงอีสปอร์ต */
+  --accent: #17c3b2;
+  --danger: #ff5c72;
+  --success: #2ecc71;
 }
 
 @theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+  --color-bg: var(--bg);
+  --color-bg-soft: var(--bg-soft);
+  --color-card: var(--card);
+  --color-border: var(--border);
+  --color-text: var(--text);
+  --color-text-dim: var(--text-dim);
+  --color-brand: var(--brand);
+  --color-brand-2: var(--brand-2);
+  --color-accent: var(--accent);
+  --color-danger: var(--danger);
+  --color-success: var(--success);
+  --font-sans: var(--font-sans);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+* {
+  border-color: var(--border);
 }
 
 body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  background:
+    radial-gradient(1200px 600px at 80% -10%, rgba(108, 92, 231, 0.18), transparent 60%),
+    radial-gradient(900px 500px at -10% 10%, rgba(245, 197, 24, 0.10), transparent 55%),
+    var(--bg);
+  color: var(--text);
+  font-family: var(--font-sans), "Segoe UI", Tahoma, sans-serif;
+  min-height: 100vh;
+}
+
+a {
+  color: inherit;
+}
+
+/* utility helpers */
+.rsl-card {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 0.9rem;
+}
+.rsl-gradient-text {
+  background: linear-gradient(90deg, var(--brand), var(--accent));
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+.rsl-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  border-radius: 0.6rem;
+  padding: 0.55rem 1rem;
+  font-weight: 600;
+  transition: all 0.15s ease;
+}
+.rsl-btn-primary {
+  background: var(--brand);
+  color: #1a1400;
+}
+.rsl-btn-primary:hover {
+  filter: brightness(1.08);
+}
+.rsl-btn-ghost {
+  background: transparent;
+  border: 1px solid var(--border);
+  color: var(--text);
+}
+.rsl-btn-ghost:hover {
+  background: var(--card-hover);
+}
+
+::selection {
+  background: var(--brand);
+  color: #1a1400;
 }

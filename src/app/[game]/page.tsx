@@ -1,13 +1,49 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
+import { unstable_cache } from "next/cache";
 import { getGameBySlug } from "@/lib/games";
 import { prisma } from "@/lib/prisma";
-import { computeBrStandings } from "@/lib/br";
+import { getBrStandings } from "@/lib/br";
+import { TAGS, TTL } from "@/lib/cache";
 import { SectionTitle, Pill, TeamLogo } from "@/components/ui";
 import { MatchCard } from "@/components/MatchCard";
 import { fmtDate, fmtDateTime } from "@/lib/format";
 
 export const dynamic = "force-dynamic";
+
+const getLatestNews = unstable_cache(
+  (gameId: string) =>
+    prisma.news.findMany({
+      where: { gameId, published: true },
+      orderBy: { publishedAt: "desc" },
+      take: 3,
+    }),
+  ["game-latest-news"],
+  { revalidate: TTL.news, tags: [TAGS.news] }
+);
+
+const getUpcomingMatches = unstable_cache(
+  (gameId: string) =>
+    prisma.match.findMany({
+      where: { gameId, status: { in: ["SCHEDULED", "PENDING"] } },
+      orderBy: [{ roundOrder: "asc" }, { bracketOrder: "asc" }],
+      take: 4,
+      include: { homeTeam: true, awayTeam: true },
+    }),
+  ["game-upcoming-matches"],
+  { revalidate: TTL.matches, tags: [TAGS.matches, TAGS.teams] }
+);
+
+const getUpcomingLobbies = unstable_cache(
+  (gameId: string) =>
+    prisma.brMatch.findMany({
+      where: { gameId, status: { in: ["SCHEDULED", "PENDING"] } },
+      orderBy: [{ scheduledAt: "asc" }, { matchNo: "asc" }],
+      take: 5,
+    }),
+  ["game-upcoming-lobbies"],
+  { revalidate: TTL.lobbies, tags: [TAGS.lobbies] }
+);
 
 export default async function GameHome({
   params,
@@ -19,11 +55,7 @@ export default async function GameHome({
   if (!g) notFound();
   const base = `/${g.slug}`;
 
-  const news = await prisma.news.findMany({
-    where: { gameId: g.id, published: true },
-    orderBy: { publishedAt: "desc" },
-    take: 3,
-  });
+  const news = await getLatestNews(g.id);
 
   return (
     <div className="space-y-10">
@@ -67,12 +99,7 @@ export default async function GameHome({
 }
 
 async function BracketTeaser({ gameId, base }: { gameId: string; base: string }) {
-  const upcoming = await prisma.match.findMany({
-    where: { gameId, status: { in: ["SCHEDULED", "PENDING"] } },
-    orderBy: [{ roundOrder: "asc" }, { bracketOrder: "asc" }],
-    take: 4,
-    include: { homeTeam: true, awayTeam: true },
-  });
+  const upcoming = await getUpcomingMatches(gameId);
   if (upcoming.length === 0) {
     return (
       <div className="rsl-card p-6 text-[color:var(--text-dim)]">
@@ -96,12 +123,8 @@ async function BracketTeaser({ gameId, base }: { gameId: string; base: string })
 
 async function BrTeaser({ gameId, base }: { gameId: string; base: string }) {
   const [standings, upcoming] = await Promise.all([
-    computeBrStandings(gameId),
-    prisma.brMatch.findMany({
-      where: { gameId, status: { in: ["SCHEDULED", "PENDING"] } },
-      orderBy: [{ scheduledAt: "asc" }, { matchNo: "asc" }],
-      take: 5,
-    }),
+    getBrStandings(gameId),
+    getUpcomingLobbies(gameId),
   ]);
   const groups = Object.keys(standings).sort();
 

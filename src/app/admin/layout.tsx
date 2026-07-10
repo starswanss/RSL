@@ -11,6 +11,7 @@ const navItems = [
   { href: "/admin/bracket", label: "สาย (RoV/FC)" },
   { href: "/admin/lobbies", label: "ล็อบบี้ (FF)" },
   { href: "/admin/news", label: "ข่าว" },
+  { href: "/admin/settings", label: "ตั้งค่า" },
 ];
 
 export default async function AdminLayout({

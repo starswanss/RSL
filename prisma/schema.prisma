@@ -34,6 +34,7 @@ model Game {
   format      String // BRACKET | BATTLE_ROYALE
   groupSize   Int? // จำนวนทีมต่อกลุ่ม (Free Fire = 12)
   color       String   @default("#f5c518")
+  logoUrl     String? // โลโก้เกม (เก็บเป็น data URL หรือ URL ภายนอก)
   tagline     String?
   description  String?
   order        Int      @default(0)
@@ -52,6 +53,7 @@ model Team {
   gameId    String
   name      String
   tag       String // ตัวย่อทีม
+  phone     String? // เบอร์โทรติดต่อทีม (ผู้จัดการ/กัปตัน)
   logoUrl   String?
   groupName String? // A, B, ... (ใช้กับ Battle Royale หรือรอบแบ่งกลุ่ม)
   seed      Int? // ลำดับวางสาย (bracket)
@@ -127,6 +129,8 @@ model ResultSubmission {
   reviewedBy    User?     @relation("ReviewedBy", fields: [reviewedById], references: [id])
   reviewedById  String?
   reviewedAt    DateTime?
+  submitterIp   String? // เก็บไว้ตรวจสอบ/กันสแปม (ไม่มีล็อกอิน)
+  userAgent     String?
   createdAt     DateTime  @default(now())
 }
 
@@ -176,6 +180,8 @@ model BrSubmission {
   reviewedBy    User?     @relation("BrReviewedBy", fields: [reviewedById], references: [id])
   reviewedById  String?
   reviewedAt    DateTime?
+  submitterIp   String? // เก็บไว้ตรวจสอบ/กันสแปม (ไม่มีล็อกอิน)
+  userAgent     String?
   createdAt     DateTime  @default(now())
 
   rows BrSubmissionRow[]
@@ -189,6 +195,13 @@ model BrSubmissionRow {
   teamId       String
   placement    Int
   kills        Int          @default(0)
+}
+
+// ตั้งค่าเว็บ (แถวเดียว id = "site")
+model SiteSetting {
+  id        String   @id @default("site")
+  logoUrl   String? // โลโก้เว็บ (data URL หรือ URL ภายนอก)
+  updatedAt DateTime @updatedAt
 }
 
 model News {

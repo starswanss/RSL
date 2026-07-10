@@ -1,10 +1,22 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
+import { unstable_cache } from "next/cache";
 import { prisma } from "@/lib/prisma";
+import { TAGS, TTL } from "@/lib/cache";
 import { Pill } from "@/components/ui";
 import { fmtDate } from "@/lib/format";
 
 export const dynamic = "force-dynamic";
+
+const getArticle = unstable_cache(
+  (slug: string) =>
+    prisma.news.findUnique({
+      where: { slug },
+      include: { author: true, game: true },
+    }),
+  ["public-news-detail"],
+  { revalidate: TTL.news, tags: [TAGS.news] }
+);
 
 export default async function GameNewsDetail({
   params,
@@ -12,10 +24,7 @@ export default async function GameNewsDetail({
   params: Promise<{ game: string; slug: string }>;
 }) {
   const { game, slug } = await params;
-  const article = await prisma.news.findUnique({
-    where: { slug },
-    include: { author: true, game: true },
-  });
+  const article = await getArticle(slug);
   if (!article || !article.published || article.game.slug !== game) notFound();
 
   return (

@@ -1,7 +1,7 @@
 import { notFound } from "next/navigation";
 import Link from "next/link";
 import { getGameBySlug } from "@/lib/games";
-import { computeBrStandings } from "@/lib/br";
+import { getBrStandings } from "@/lib/br";
 import { TeamLogo } from "@/components/ui";
 
 export const dynamic = "force-dynamic";
@@ -16,7 +16,7 @@ export default async function StandingsPage({
   if (!g) notFound();
   if (g.format !== "BATTLE_ROYALE") notFound();
 
-  const groups = await computeBrStandings(g.id);
+  const groups = await getBrStandings(g.id);
   const groupNames = Object.keys(groups).sort();
 
   return (

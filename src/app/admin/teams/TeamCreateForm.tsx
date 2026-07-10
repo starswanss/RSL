@@ -48,6 +48,10 @@ export function TeamCreateForm({
           <label className="block text-xs text-[color:var(--text-dim)] mb-1">ตัวย่อ *</label>
           <input name="tag" required maxLength={5} className={`${input} w-24`} placeholder="TAG" />
         </div>
+        <div>
+          <label className="block text-xs text-[color:var(--text-dim)] mb-1">เบอร์โทร</label>
+          <input name="phone" type="tel" className={`${input} w-40`} placeholder="08x-xxx-xxxx" />
+        </div>
         {isBr ? (
           <div>
             <label className="block text-xs text-[color:var(--text-dim)] mb-1">กลุ่ม</label>

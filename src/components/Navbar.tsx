@@ -1,16 +1,22 @@
 import Link from "next/link";
 import { getActiveGames } from "@/lib/games";
+import { getSiteSettings } from "@/lib/settings";
 
 export async function Navbar() {
-  const games = await getActiveGames();
+  const [games, site] = await Promise.all([getActiveGames(), getSiteSettings()]);
 
   return (
     <header className="sticky top-0 z-50 backdrop-blur-md bg-[color:var(--bg)]/80 border-b border-[color:var(--border)]">
       <nav className="max-w-6xl mx-auto px-4 h-16 flex items-center justify-between gap-4">
         <Link href="/" className="flex items-center gap-2 shrink-0">
-          <span className="inline-grid place-items-center w-9 h-9 rounded-lg bg-[color:var(--brand)] text-[#1a1400] font-extrabold">
-            R
-          </span>
+          {site.logoUrl ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img src={site.logoUrl} alt="RSL" className="h-9 w-auto max-w-[160px] object-contain" />
+          ) : (
+            <span className="inline-grid place-items-center w-9 h-9 rounded-lg bg-[color:var(--brand)] text-[#1a1400] font-extrabold">
+              R
+            </span>
+          )}
           <span className="font-extrabold text-lg tracking-tight">
             <span className="rsl-gradient-text">RSL</span>
             <span className="hidden sm:inline text-[color:var(--text-dim)] font-semibold text-sm ml-2">
@@ -35,11 +41,6 @@ export async function Navbar() {
           ))}
         </div>
 
-        <div className="flex items-center gap-2">
-          <Link href="/admin" className="rsl-btn rsl-btn-ghost text-sm">
-            แอดมิน
-          </Link>
-        </div>
       </nav>
 
       {/* เมนูเกมมือถือ */}

@@ -8,6 +8,7 @@ export type ImportedPlayer = {
 export type ImportedTeam = {
   name: string;
   tag: string;
+  phone: string | null;
   groupName: string | null;
   seed: number | null;
   players: ImportedPlayer[];
@@ -17,6 +18,7 @@ export type ImportedTeam = {
 const HEADERS = {
   team: ["team", "ทีม", "ชื่อทีม", "team name", "teamname", "ชื่อ ทีม"],
   tag: ["tag", "ตัวย่อ", "ชื่อย่อ", "อักษรย่อ", "แท็ก"],
+  phone: ["phone", "เบอร์โทร", "เบอร์", "โทรศัพท์", "เบอร์ติดต่อ", "tel", "โทร"],
   group: ["group", "กลุ่ม", "สาย"],
   seed: ["seed", "ซีด", "ลำดับ", "ลำดับสาย"],
   player: [
@@ -86,6 +88,7 @@ export function parseTeamsWorkbook(buf: ArrayBuffer): ImportedTeam[] {
       team = {
         name: teamName,
         tag: get(HEADERS.tag) || teamName.slice(0, 5).toUpperCase(),
+        phone: get(HEADERS.phone) || null,
         groupName: get(HEADERS.group) || null,
         seed: null,
         players: [],
@@ -95,6 +98,7 @@ export function parseTeamsWorkbook(buf: ArrayBuffer): ImportedTeam[] {
       teams.set(teamName, team);
     } else {
       // เติมข้อมูลระดับทีมถ้าเดิมยังว่าง
+      if (!team.phone) team.phone = get(HEADERS.phone) || null;
       if (!team.groupName) team.groupName = get(HEADERS.group) || null;
       if (team.seed === null) {
         const seedRaw = get(HEADERS.seed);

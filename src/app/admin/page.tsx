@@ -104,6 +104,11 @@ export default async function AdminDashboard({
                       <> · <a href={s.proofUrl} target="_blank" rel="noopener noreferrer" className="text-[color:var(--accent)] underline">หลักฐาน</a></>
                     )}
                   </div>
+                  {(s.submitterIp || s.userAgent) && (
+                    <div className="text-[10px] text-[color:var(--text-dim)] mt-1 opacity-70 truncate">
+                      IP: {s.submitterIp || "-"}{s.userAgent ? ` · ${s.userAgent}` : ""}
+                    </div>
+                  )}
                   <div className="mt-4 flex flex-wrap gap-2 items-center">
                     <form action={approveBracketAction}>
                       <input type="hidden" name="submissionId" value={s.id} />
@@ -165,6 +170,11 @@ export default async function AdminDashboard({
                     <> · <a href={s.proofUrl} target="_blank" rel="noopener noreferrer" className="text-[color:var(--accent)] underline">หลักฐาน</a></>
                   )}
                 </div>
+                {(s.submitterIp || s.userAgent) && (
+                  <div className="text-[10px] text-[color:var(--text-dim)] mt-1 opacity-70 truncate">
+                    IP: {s.submitterIp || "-"}{s.userAgent ? ` · ${s.userAgent}` : ""}
+                  </div>
+                )}
                 <div className="mt-4 flex flex-wrap gap-2 items-center">
                   <form action={approveBrAction}>
                     <input type="hidden" name="submissionId" value={s.id} />

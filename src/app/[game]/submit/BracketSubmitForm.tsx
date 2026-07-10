@@ -3,6 +3,7 @@
 import { useActionState, useState } from "react";
 import { useFormStatus } from "react-dom";
 import { submitBracketResult, type SubmitState } from "./actions";
+import { HoneypotFields } from "./HoneypotFields";
 
 export type MatchOption = {
   id: string;
@@ -31,6 +32,7 @@ export function BracketSubmitForm({ matches }: { matches: MatchOption[] }) {
 
   return (
     <form action={action} className="rsl-card p-6 space-y-4">
+      <HoneypotFields />
       <div>
         <label className="block text-sm font-semibold mb-1">เลือกแมตช์ *</label>
         <select
@@ -72,8 +74,11 @@ export function BracketSubmitForm({ matches }: { matches: MatchOption[] }) {
         </div>
       </div>
       <div>
-        <label className="block text-sm font-semibold mb-1">ลิงก์ภาพสกอร์บอร์ด (แนะนำ)</label>
-        <input type="url" name="proofUrl" placeholder="https://..." className={input} />
+        <label className="block text-sm font-semibold mb-1">ลิงก์ภาพสกอร์บอร์ด (หลักฐาน) *</label>
+        <input type="url" name="proofUrl" required placeholder="https://..." className={input} />
+        <p className="text-xs text-[color:var(--text-dim)] mt-1">
+          แนบลิงก์รูปสกอร์บอร์ด (เช่น Google Drive, imgur) เพื่อให้แอดมินตรวจสอบได้
+        </p>
       </div>
       <div>
         <label className="block text-sm font-semibold mb-1">หมายเหตุ</label>

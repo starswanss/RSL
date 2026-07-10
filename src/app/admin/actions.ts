@@ -1,7 +1,9 @@
 "use server";
 
 import { redirect } from "next/navigation";
+import { updateTag } from "next/cache";
 import { z } from "zod";
+import { TAGS } from "@/lib/cache";
 import {
   createSession,
   destroySession,
@@ -13,6 +15,9 @@ import { approveSubmission, rejectSubmission } from "@/lib/matches";
 import { approveBrSubmission, rejectBrSubmission, computePoints } from "@/lib/br";
 import { generateBracket } from "@/lib/bracket";
 import { parseTeamsWorkbook } from "@/lib/import";
+import { parseDatetimeLocalTH } from "@/lib/format";
+import { fileToDataUrl } from "@/lib/image";
+import { setSiteLogo } from "@/lib/settings";
 
 export type ActionState = { ok: boolean; message: string };
 
@@ -20,6 +25,12 @@ async function assertAdmin() {
   const s = await getSession();
   if (!s) redirect("/admin/login");
   return s;
+}
+
+// ล้าง cache หน้าสาธารณะที่เกี่ยวข้อง (เรียกก่อน redirect/return เสมอ)
+// updateTag = invalidate จากใน Server Action (Next 16, read-your-own-writes)
+function bust(...tags: string[]) {
+  for (const t of tags) updateTag(t);
 }
 
 function back(path: string, msg: string, isError = false) {
@@ -54,6 +65,7 @@ export async function approveBracketAction(formData: FormData) {
   } catch (e) {
     back("/admin", (e as Error).message, true);
   }
+  bust(TAGS.matches);
   back("/admin", "อนุมัติผลเรียบร้อย สายการแข่งขันอัปเดตแล้ว");
 }
 
@@ -77,6 +89,7 @@ export async function rejectBracketAction(formData: FormData) {
   } catch (e) {
     back("/admin", (e as Error).message, true);
   }
+  bust(TAGS.matches);
   back("/admin", "ปฏิเสธผลเรียบร้อย");
 }
 
@@ -88,6 +101,7 @@ export async function approveBrAction(formData: FormData) {
   } catch (e) {
     back("/admin", (e as Error).message, true);
   }
+  bust(TAGS.lobbies);
   back("/admin", "อนุมัติผลล็อบบี้เรียบร้อย ตารางคะแนนอัปเดตแล้ว");
 }
 
@@ -100,6 +114,7 @@ export async function rejectBrAction(formData: FormData) {
   } catch (e) {
     back("/admin", (e as Error).message, true);
   }
+  bust(TAGS.lobbies);
   back("/admin", "ปฏิเสธผลล็อบบี้เรียบร้อย");
 }
 
@@ -140,7 +155,50 @@ export async function createGameAction(
       order: count + 1,
     },
   });
+  bust(TAGS.games);
   return { ok: true, message: "เพิ่มเกมเรียบร้อย" };
+}
+
+// ===================== LOGOS (เว็บ + เกม) =====================
+// อัปเดตโลโก้เว็บ (อัปโหลดไฟล์ หรือกดลบ)
+export async function updateSiteLogoAction(formData: FormData) {
+  await assertAdmin();
+  if (formData.get("remove") === "1") {
+    await setSiteLogo(null);
+    bust(TAGS.site);
+    back("/admin/settings", "ลบโลโก้เว็บแล้ว");
+  }
+  const file = formData.get("logo");
+  if (!(file instanceof File) || file.size === 0)
+    back("/admin/settings", "กรุณาเลือกไฟล์รูป", true);
+  const res = await fileToDataUrl(file as File);
+  if (!res.ok) back("/admin/settings", res.message, true);
+  await setSiteLogo((res as { dataUrl: string }).dataUrl);
+  bust(TAGS.site);
+  back("/admin/settings", "อัปเดตโลโก้เว็บแล้ว");
+}
+
+// อัปเดตโลโก้ของเกม (อัปโหลดไฟล์ หรือกดลบ)
+export async function updateGameLogoAction(formData: FormData) {
+  await assertAdmin();
+  const gameId = String(formData.get("gameId") || "");
+  if (!gameId) back("/admin/games", "ไม่พบเกม", true);
+  if (formData.get("remove") === "1") {
+    await prisma.game.update({ where: { id: gameId }, data: { logoUrl: null } });
+    bust(TAGS.games);
+    back("/admin/games", "ลบโลโก้เกมแล้ว");
+  }
+  const file = formData.get("logo");
+  if (!(file instanceof File) || file.size === 0)
+    back("/admin/games", "กรุณาเลือกไฟล์รูป", true);
+  const res = await fileToDataUrl(file as File);
+  if (!res.ok) back("/admin/games", res.message, true);
+  await prisma.game.update({
+    where: { id: gameId },
+    data: { logoUrl: (res as { dataUrl: string }).dataUrl },
+  });
+  bust(TAGS.games);
+  back("/admin/games", "อัปเดตโลโก้เกมแล้ว");
 }
 
 export async function toggleGameAction(formData: FormData) {
@@ -149,6 +207,7 @@ export async function toggleGameAction(formData: FormData) {
   const g = await prisma.game.findUnique({ where: { id } });
   if (g)
     await prisma.game.update({ where: { id }, data: { active: !g.active } });
+  bust(TAGS.games);
   back("/admin/games", "อัปเดตสถานะเกมแล้ว");
 }
 
@@ -158,6 +217,7 @@ export async function createTeamAction(formData: FormData) {
   const gameId = String(formData.get("gameId") || "");
   const name = String(formData.get("name") || "").trim();
   const tag = String(formData.get("tag") || "").trim();
+  const phone = String(formData.get("phone") || "").trim() || null;
   const groupName = String(formData.get("groupName") || "").trim() || null;
   const seedRaw = String(formData.get("seed") || "").trim();
   const seed = seedRaw ? Number(seedRaw) : null;
@@ -182,6 +242,7 @@ export async function createTeamAction(formData: FormData) {
         gameId,
         name,
         tag,
+        phone,
         groupName,
         seed: seed ?? undefined,
         players: players.length ? { create: players } : undefined,
@@ -190,6 +251,7 @@ export async function createTeamAction(formData: FormData) {
   } catch {
     back(`/admin/teams?game=${gameId}`, "ชื่อทีมหรือตัวย่อซ้ำในเกมนี้", true);
   }
+  bust(TAGS.teams);
   back(
     `/admin/teams?game=${gameId}`,
     `เพิ่มทีมเรียบร้อย${players.length ? ` (${players.length} ผู้เล่น)` : ""}`
@@ -201,7 +263,22 @@ export async function deleteTeamAction(formData: FormData) {
   const id = String(formData.get("id") || "");
   const gameId = String(formData.get("gameId") || "");
   await prisma.team.delete({ where: { id } });
+  bust(TAGS.teams);
   back(`/admin/teams?game=${gameId}`, "ลบทีมแล้ว");
+}
+
+// ลบทุกทีมของเกมนี้ (ผู้เล่น/ผลที่ผูกกับทีมจะถูกลบตาม cascade)
+export async function deleteAllTeamsAction(formData: FormData) {
+  await assertAdmin();
+  const gameId = String(formData.get("gameId") || "");
+  if (!gameId) back("/admin/teams", "ไม่พบเกม", true);
+  // กันพลาด: ต้องพิมพ์ยืนยันให้ตรง
+  const confirmText = String(formData.get("confirmText") || "").trim();
+  if (confirmText !== "ลบทั้งหมด")
+    back(`/admin/teams?game=${gameId}`, "ยกเลิก: ต้องพิมพ์ \"ลบทั้งหมด\" เพื่อยืนยัน", true);
+  const { count } = await prisma.team.deleteMany({ where: { gameId } });
+  bust(TAGS.teams);
+  back(`/admin/teams?game=${gameId}`, `ลบทีมทั้งหมดแล้ว (${count} ทีม)`);
 }
 
 // นำเข้าทีม + ผู้เล่นจากไฟล์ Excel
@@ -258,6 +335,7 @@ export async function importTeamsAction(
           gameId,
           name: t.name,
           tag,
+          phone: t.phone,
           groupName: t.groupName,
           seed: t.seed ?? undefined,
           players: t.players.length
@@ -277,6 +355,7 @@ export async function importTeamsAction(
   const msg =
     `นำเข้าสำเร็จ ${createdTeams} ทีม, ${createdPlayers} ผู้เล่น` +
     (skipped.length ? ` · ข้าม ${skipped.length}: ${skipped.slice(0, 5).join(", ")}` : "");
+  if (createdTeams > 0) bust(TAGS.teams);
   return { ok: createdTeams > 0, message: msg };
 }
 
@@ -292,6 +371,7 @@ export async function addPlayerAction(formData: FormData) {
   await prisma.player.create({
     data: { teamId, nickname, role, isCaptain },
   });
+  bust(TAGS.teams);
   back(`/admin/teams?game=${gameId}`, "เพิ่มผู้เล่นแล้ว");
 }
 
@@ -300,6 +380,7 @@ export async function deletePlayerAction(formData: FormData) {
   const id = String(formData.get("id") || "");
   const gameId = String(formData.get("gameId") || "");
   await prisma.player.delete({ where: { id } });
+  bust(TAGS.teams);
   back(`/admin/teams?game=${gameId}`, "ลบผู้เล่นแล้ว");
 }
 
@@ -316,7 +397,33 @@ export async function generateBracketAction(formData: FormData) {
   } catch (e) {
     back(`/admin/bracket?game=${gameId}`, (e as Error).message, true);
   }
+  bust(TAGS.matches);
   back(`/admin/bracket?game=${gameId}`, "สร้างสายการแข่งขันเรียบร้อย");
+}
+
+// กำหนด/แก้ไขวัน–เวลาแข่งทั้งรอบ (ทุกคู่ในรอบเดียวกันได้เวลาเหมือนกัน)
+export async function setRoundScheduleAction(formData: FormData) {
+  await assertAdmin();
+  const gameId = String(formData.get("gameId") || "");
+  const roundOrder = Number(formData.get("roundOrder"));
+  const raw = String(formData.get("scheduledAt") || "").trim();
+  if (!gameId || !Number.isInteger(roundOrder))
+    back(`/admin/bracket?game=${gameId}`, "ข้อมูลรอบไม่ถูกต้อง", true);
+  let scheduledAt: Date | null = null;
+  if (raw) {
+    scheduledAt = parseDatetimeLocalTH(raw);
+    if (!scheduledAt)
+      back(`/admin/bracket?game=${gameId}`, "รูปแบบวันเวลาไม่ถูกต้อง", true);
+  }
+  const { count } = await prisma.match.updateMany({
+    where: { gameId, roundOrder },
+    data: { scheduledAt },
+  });
+  bust(TAGS.matches);
+  back(
+    `/admin/bracket?game=${gameId}`,
+    raw ? `บันทึกวัน–เวลาทั้งรอบแล้ว (${count} คู่)` : `ล้างวัน–เวลาของรอบแล้ว (${count} คู่)`
+  );
 }
 
 export async function recordBracketResultAction(formData: FormData) {
@@ -344,6 +451,7 @@ export async function recordBracketResultAction(formData: FormData) {
   } catch (e) {
     back(`/admin/bracket?game=${gameId}`, (e as Error).message, true);
   }
+  bust(TAGS.matches);
   back(`/admin/bracket?game=${gameId}`, "บันทึกผลและอัปเดตสายแล้ว");
 }
 
@@ -364,6 +472,7 @@ export async function createLobbyAction(formData: FormData) {
       scheduledAt: scheduledRaw ? new Date(scheduledRaw) : null,
     },
   });
+  bust(TAGS.lobbies);
   back(`/admin/lobbies?game=${gameId}`, "สร้างล็อบบี้เรียบร้อย");
 }
 
@@ -372,6 +481,7 @@ export async function deleteLobbyAction(formData: FormData) {
   const id = String(formData.get("id") || "");
   const gameId = String(formData.get("gameId") || "");
   await prisma.brMatch.delete({ where: { id } });
+  bust(TAGS.lobbies);
   back(`/admin/lobbies?game=${gameId}`, "ลบล็อบบี้แล้ว");
 }
 
@@ -411,6 +521,7 @@ export async function recordBrResultAction(formData: FormData) {
     }
     await tx.brMatch.update({ where: { id: brMatchId }, data: { status: "COMPLETED" } });
   });
+  bust(TAGS.lobbies);
   back(`/admin/lobbies?game=${gameId}`, "บันทึกผลและอัปเดตตารางคะแนนแล้ว");
 }
 
@@ -454,6 +565,7 @@ export async function createNewsAction(
       authorId: admin.id,
     },
   });
+  bust(TAGS.news);
   return { ok: true, message: "เผยแพร่ข่าวเรียบร้อย" };
 }
 
@@ -461,5 +573,6 @@ export async function deleteNewsAction(formData: FormData) {
   await assertAdmin();
   const id = String(formData.get("id") || "");
   await prisma.news.delete({ where: { id } });
+  bust(TAGS.news);
   back("/admin/news", "ลบข่าวแล้ว");
 }

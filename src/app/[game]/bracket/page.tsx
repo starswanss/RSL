@@ -1,10 +1,23 @@
 import { notFound } from "next/navigation";
+import { unstable_cache } from "next/cache";
 import { getGameBySlug } from "@/lib/games";
 import { prisma } from "@/lib/prisma";
+import { TAGS, TTL } from "@/lib/cache";
 import { TeamLogo } from "@/components/ui";
 import { fmtDateTime } from "@/lib/format";
 
 export const dynamic = "force-dynamic";
+
+const getBracketMatches = unstable_cache(
+  (gameId: string) =>
+    prisma.match.findMany({
+      where: { gameId },
+      orderBy: [{ roundOrder: "asc" }, { bracketOrder: "asc" }],
+      include: { homeTeam: true, awayTeam: true },
+    }),
+  ["public-bracket-matches"],
+  { revalidate: TTL.matches, tags: [TAGS.matches, TAGS.teams] }
+);
 
 type BMatch = {
   id: string;
@@ -71,11 +84,7 @@ export default async function BracketPage({
   if (!g) notFound();
   if (g.format !== "BRACKET") notFound();
 
-  const matches = (await prisma.match.findMany({
-    where: { gameId: g.id },
-    orderBy: [{ roundOrder: "asc" }, { bracketOrder: "asc" }],
-    include: { homeTeam: true, awayTeam: true },
-  })) as unknown as BMatch[];
+  const matches = (await getBracketMatches(g.id)) as unknown as BMatch[];
 
   if (matches.length === 0) {
     return (

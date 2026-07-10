@@ -1,21 +1,31 @@
+import { unstable_cache } from "next/cache";
 import { prisma } from "./prisma";
+import { TAGS, TTL } from "./cache";
 
 export type GameFormat = "BRACKET" | "BATTLE_ROYALE";
 
-export async function getActiveGames() {
-  return prisma.game.findMany({
-    where: { active: true },
-    orderBy: { order: "asc" },
-  });
-}
+// เกมเปลี่ยนน้อยมาก แต่ถูกอ่านทุกหน้า (Navbar/layout) — cache ยาว + ล้างด้วย tag "games"
+export const getActiveGames = unstable_cache(
+  () =>
+    prisma.game.findMany({
+      where: { active: true },
+      orderBy: { order: "asc" },
+    }),
+  ["active-games"],
+  { revalidate: TTL.games, tags: [TAGS.games] }
+);
 
-export async function getAllGames() {
-  return prisma.game.findMany({ orderBy: { order: "asc" } });
-}
+export const getAllGames = unstable_cache(
+  () => prisma.game.findMany({ orderBy: { order: "asc" } }),
+  ["all-games"],
+  { revalidate: TTL.games, tags: [TAGS.games] }
+);
 
-export async function getGameBySlug(slug: string) {
-  return prisma.game.findUnique({ where: { slug } });
-}
+export const getGameBySlug = unstable_cache(
+  (slug: string) => prisma.game.findUnique({ where: { slug } }),
+  ["game-by-slug"],
+  { revalidate: TTL.games, tags: [TAGS.games] }
+);
 
 export function isBracket(format: string) {
   return format === "BRACKET";

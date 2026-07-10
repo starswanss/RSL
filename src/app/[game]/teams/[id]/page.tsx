@@ -1,11 +1,48 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
+import { unstable_cache } from "next/cache";
 import { prisma } from "@/lib/prisma";
+import { TAGS, TTL } from "@/lib/cache";
 import { TeamLogo, Pill } from "@/components/ui";
 import { MatchCard } from "@/components/MatchCard";
 import { fmtDateTime } from "@/lib/format";
 
 export const dynamic = "force-dynamic";
+
+const getTeam = unstable_cache(
+  (id: string) =>
+    prisma.team.findUnique({
+      where: { id },
+      include: {
+        game: true,
+        players: { orderBy: [{ isCaptain: "desc" }, { nickname: "asc" }] },
+      },
+    }),
+  ["public-team-detail"],
+  { revalidate: TTL.teams, tags: [TAGS.teams] }
+);
+
+const getTeamMatches = unstable_cache(
+  (id: string) =>
+    prisma.match.findMany({
+      where: { OR: [{ homeTeamId: id }, { awayTeamId: id }] },
+      orderBy: { roundOrder: "asc" },
+      include: { homeTeam: true, awayTeam: true },
+    }),
+  ["public-team-matches"],
+  { revalidate: TTL.matches, tags: [TAGS.matches, TAGS.teams] }
+);
+
+const getTeamBrResults = unstable_cache(
+  (id: string) =>
+    prisma.brTeamResult.findMany({
+      where: { teamId: id },
+      include: { brMatch: true },
+      orderBy: { brMatch: { matchNo: "asc" } },
+    }),
+  ["public-team-br-results"],
+  { revalidate: TTL.lobbies, tags: [TAGS.lobbies] }
+);
 
 export default async function TeamDetail({
   params,
@@ -13,32 +50,14 @@ export default async function TeamDetail({
   params: Promise<{ game: string; id: string }>;
 }) {
   const { game, id } = await params;
-  const team = await prisma.team.findUnique({
-    where: { id },
-    include: {
-      game: true,
-      players: { orderBy: [{ isCaptain: "desc" }, { nickname: "asc" }] },
-    },
-  });
+  const team = await getTeam(id);
   if (!team || team.game.slug !== game) notFound();
 
   const isBr = team.game.format === "BATTLE_ROYALE";
 
-  const matches = isBr
-    ? []
-    : await prisma.match.findMany({
-        where: { OR: [{ homeTeamId: id }, { awayTeamId: id }] },
-        orderBy: { roundOrder: "asc" },
-        include: { homeTeam: true, awayTeam: true },
-      });
+  const matches = isBr ? [] : await getTeamMatches(id);
 
-  const brResults = isBr
-    ? await prisma.brTeamResult.findMany({
-        where: { teamId: id },
-        include: { brMatch: true },
-        orderBy: { brMatch: { matchNo: "asc" } },
-      })
-    : [];
+  const brResults = isBr ? await getTeamBrResults(id) : [];
 
   return (
     <div>
@@ -53,11 +72,19 @@ export default async function TeamDetail({
         <TeamLogo tag={team.tag} logoUrl={team.logoUrl} size={80} />
         <div>
           <h1 className="text-3xl font-extrabold">{team.name}</h1>
-          <div className="mt-2 flex gap-2">
+          <div className="mt-2 flex flex-wrap gap-2">
             <Pill>{team.tag}</Pill>
             {team.groupName && <Pill>สาย {team.groupName}</Pill>}
             {team.seed != null && <Pill>Seed {team.seed}</Pill>}
           </div>
+          {team.phone && (
+            <p className="mt-2 text-sm text-[color:var(--text-dim)]">
+              📞 ติดต่อทีม:{" "}
+              <a href={`tel:${team.phone}`} className="hover:text-[color:var(--brand)]">
+                {team.phone}
+              </a>
+            </p>
+          )}
         </div>
       </div>
 

@@ -1,17 +1,25 @@
 import Link from "next/link";
+import { unstable_cache } from "next/cache";
 import { getActiveGames } from "@/lib/games";
 import { prisma } from "@/lib/prisma";
 import { FORMAT_LABEL } from "@/lib/games";
+import { TAGS, TTL } from "@/lib/cache";
 import { Pill } from "@/components/ui";
 
 export const dynamic = "force-dynamic";
+
+const getTeamCount = unstable_cache(
+  (gameId: string) => prisma.team.count({ where: { gameId } }),
+  ["home-team-count"],
+  { revalidate: TTL.teams, tags: [TAGS.teams] }
+);
 
 export default async function HomePage() {
   const games = await getActiveGames();
 
   const counts = await Promise.all(
     games.map(async (g) => ({
-      teams: await prisma.team.count({ where: { gameId: g.id } }),
+      teams: await getTeamCount(g.id),
     }))
   );
 
@@ -40,12 +48,17 @@ export default async function HomePage() {
               style={{ borderTop: `3px solid ${g.color}` }}
             >
               <div className="flex items-center gap-3">
-                <span
-                  className="inline-grid place-items-center w-14 h-14 rounded-xl font-extrabold text-xl shrink-0"
-                  style={{ background: g.color, color: "#0b0f1a" }}
-                >
-                  {g.shortName}
-                </span>
+                {g.logoUrl ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img src={g.logoUrl} alt={g.name} className="w-14 h-14 rounded-xl object-contain bg-[color:var(--bg-soft)] p-1 shrink-0" />
+                ) : (
+                  <span
+                    className="inline-grid place-items-center w-14 h-14 rounded-xl font-extrabold text-xl shrink-0"
+                    style={{ background: g.color, color: "#0b0f1a" }}
+                  >
+                    {g.shortName}
+                  </span>
+                )}
                 <div>
                   <h2 className="text-2xl font-extrabold">{g.name}</h2>
                   <span className="text-xs text-[color:var(--text-dim)]">

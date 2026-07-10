@@ -3,6 +3,7 @@
 import { useActionState, useState } from "react";
 import { useFormStatus } from "react-dom";
 import { submitBrResult, type SubmitState } from "./actions";
+import { HoneypotFields } from "./HoneypotFields";
 
 export type LobbyTeam = { id: string; name: string; tag: string };
 export type LobbyOption = {
@@ -30,6 +31,7 @@ export function BrSubmitForm({ lobbies }: { lobbies: LobbyOption[] }) {
 
   return (
     <form action={action} className="rsl-card p-6 space-y-4">
+      <HoneypotFields />
       <div>
         <label className="block text-sm font-semibold mb-1">เลือกล็อบบี้ *</label>
         <select
@@ -101,8 +103,8 @@ export function BrSubmitForm({ lobbies }: { lobbies: LobbyOption[] }) {
           <input name="submitterName" required className={input} />
         </div>
         <div>
-          <label className="block text-sm font-semibold mb-1">ลิงก์ภาพสกอร์บอร์ด</label>
-          <input type="url" name="proofUrl" placeholder="https://..." className={input} />
+          <label className="block text-sm font-semibold mb-1">ลิงก์ภาพสกอร์บอร์ด (หลักฐาน) *</label>
+          <input type="url" name="proofUrl" required placeholder="https://..." className={input} />
         </div>
       </div>
       <div>

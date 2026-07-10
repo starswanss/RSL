@@ -46,12 +46,21 @@ export default async function GameLayout({
         className="rsl-card p-6 mb-6 flex items-center gap-4"
         style={{ borderLeft: `4px solid ${g.color}` }}
       >
-        <span
-          className="inline-grid place-items-center w-16 h-16 rounded-xl font-extrabold text-2xl shrink-0"
-          style={{ background: g.color, color: "#0b0f1a" }}
-        >
-          {g.shortName}
-        </span>
+        {g.logoUrl ? (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img
+            src={g.logoUrl}
+            alt={g.name}
+            className="w-16 h-16 rounded-xl object-contain bg-[color:var(--bg-soft)] p-1 shrink-0"
+          />
+        ) : (
+          <span
+            className="inline-grid place-items-center w-16 h-16 rounded-xl font-extrabold text-2xl shrink-0"
+            style={{ background: g.color, color: "#0b0f1a" }}
+          >
+            {g.shortName}
+          </span>
+        )}
         <div>
           <h1 className="text-3xl font-extrabold">{g.name}</h1>
           <p className="text-sm text-[color:var(--text-dim)]">

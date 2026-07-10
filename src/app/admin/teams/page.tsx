@@ -5,6 +5,7 @@ import { AdminGamePicker } from "@/components/AdminGamePicker";
 import { deleteTeamAction, addPlayerAction, deletePlayerAction } from "../actions";
 import { TeamCreateForm } from "./TeamCreateForm";
 import { ImportTeamsForm } from "./ImportTeamsForm";
+import { DeleteAllTeamsButton } from "./DeleteAllTeamsButton";
 import { Pill } from "@/components/ui";
 
 export const dynamic = "force-dynamic";
@@ -54,7 +55,10 @@ export default async function AdminTeamsPage({
           <TeamCreateForm gameId={game.id} isBr={!!isBr} />
 
           {/* รายชื่อทีม */}
-          <p className="text-sm text-[color:var(--text-dim)] mb-3">{teams.length} ทีมในเกม {game.name}</p>
+          <div className="flex items-center justify-between gap-3 mb-3">
+            <p className="text-sm text-[color:var(--text-dim)]">{teams.length} ทีมในเกม {game.name}</p>
+            <DeleteAllTeamsButton gameId={game.id} gameName={game.name} count={teams.length} />
+          </div>
           <div className="space-y-4">
             {teams.map((t) => (
               <div key={t.id} className="rsl-card p-4">
@@ -64,6 +68,9 @@ export default async function AdminTeamsPage({
                     <Pill>{t.tag}</Pill>
                     {t.groupName && <Pill>กลุ่ม {t.groupName}</Pill>}
                     {t.seed != null && <Pill>Seed {t.seed}</Pill>}
+                    {t.phone && (
+                      <span className="text-xs text-[color:var(--text-dim)]">📞 {t.phone}</span>
+                    )}
                     <span className="text-xs text-[color:var(--text-dim)]">{t.players.length} ผู้เล่น</span>
                   </div>
                   <form action={deleteTeamAction}>

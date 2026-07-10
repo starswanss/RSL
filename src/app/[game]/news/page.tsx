@@ -1,11 +1,23 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
+import { unstable_cache } from "next/cache";
 import { getGameBySlug } from "@/lib/games";
 import { prisma } from "@/lib/prisma";
+import { TAGS, TTL } from "@/lib/cache";
 import { Pill } from "@/components/ui";
 import { fmtDate } from "@/lib/format";
 
 export const dynamic = "force-dynamic";
+
+const getPublishedNews = unstable_cache(
+  (gameId: string) =>
+    prisma.news.findMany({
+      where: { gameId, published: true },
+      orderBy: { publishedAt: "desc" },
+    }),
+  ["public-news-list"],
+  { revalidate: TTL.news, tags: [TAGS.news] }
+);
 
 export default async function GameNewsList({
   params,
@@ -16,10 +28,7 @@ export default async function GameNewsList({
   const g = await getGameBySlug(game);
   if (!g) notFound();
 
-  const news = await prisma.news.findMany({
-    where: { gameId: g.id, published: true },
-    orderBy: { publishedAt: "desc" },
-  });
+  const news = await getPublishedNews(g.id);
 
   return (
     <div>

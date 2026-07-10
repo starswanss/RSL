@@ -1,4 +1,6 @@
+import { unstable_cache } from "next/cache";
 import { prisma } from "./prisma";
+import { TAGS, TTL } from "./cache";
 
 // ตารางแต้มตามอันดับ (Free Fire มาตรฐาน 12 ทีม)
 export const PLACEMENT_POINTS: Record<number, number> = {
@@ -96,6 +98,13 @@ export async function computeBrStandings(
   }
   return byGroup;
 }
+
+// เวอร์ชัน cache สำหรับหน้าสาธารณะ — ขึ้นกับทีม (roster/กลุ่ม) และผลล็อบบี้
+export const getBrStandings = unstable_cache(
+  (gameId: string) => computeBrStandings(gameId),
+  ["br-standings"],
+  { revalidate: TTL.lobbies, tags: [TAGS.teams, TAGS.lobbies] }
+);
 
 /**
  * อนุมัติผลทั้งล็อบบี้: คำนวณแต้ม บันทึกผลอย่างเป็นทางการ

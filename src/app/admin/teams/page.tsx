@@ -6,6 +6,7 @@ import { deleteTeamAction, addPlayerAction, deletePlayerAction } from "../action
 import { TeamCreateForm } from "./TeamCreateForm";
 import { ImportTeamsForm } from "./ImportTeamsForm";
 import { DeleteAllTeamsButton } from "./DeleteAllTeamsButton";
+import { TeamEditForm } from "./TeamEditForm";
 import { Pill } from "@/components/ui";
 
 export const dynamic = "force-dynamic";
@@ -78,6 +79,15 @@ export default async function AdminTeamsPage({
                     <input type="hidden" name="gameId" value={game.id} />
                     <button className="text-xs text-[color:var(--danger)] hover:underline">ลบทีม</button>
                   </form>
+                </div>
+
+                {/* แก้ไขข้อมูลทีม (พับ/ขยาย) */}
+                <div className="mt-2">
+                  <TeamEditForm
+                    team={{ id: t.id, name: t.name, tag: t.tag, phone: t.phone, groupName: t.groupName, seed: t.seed }}
+                    gameId={game.id}
+                    isBr={!!isBr}
+                  />
                 </div>
 
                 {/* ผู้เล่น */}

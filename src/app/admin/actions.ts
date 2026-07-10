@@ -283,6 +283,30 @@ export async function createTeamAction(formData: FormData) {
   );
 }
 
+export async function updateTeamAction(formData: FormData) {
+  await assertAdmin();
+  const id = String(formData.get("id") || "");
+  const gameId = String(formData.get("gameId") || "");
+  const name = String(formData.get("name") || "").trim();
+  const tag = String(formData.get("tag") || "").trim();
+  const phone = String(formData.get("phone") || "").trim() || null;
+  const groupName = String(formData.get("groupName") || "").trim() || null;
+  const seedRaw = String(formData.get("seed") || "").trim();
+  const seed = seedRaw ? Number(seedRaw) : null;
+  if (!id || name.length < 1 || tag.length < 1)
+    back(`/admin/teams?game=${gameId}`, "กรุณากรอกชื่อทีมและตัวย่อ", true);
+  try {
+    await prisma.team.update({
+      where: { id },
+      data: { name, tag, phone, groupName, seed },
+    });
+  } catch {
+    back(`/admin/teams?game=${gameId}`, "ชื่อทีมหรือตัวย่อซ้ำในเกมนี้", true);
+  }
+  bust(TAGS.teams);
+  back(`/admin/teams?game=${gameId}`, "บันทึกข้อมูลทีมแล้ว");
+}
+
 export async function deleteTeamAction(formData: FormData) {
   await assertAdmin();
   const id = String(formData.get("id") || "");

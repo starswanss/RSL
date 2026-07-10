@@ -1,7 +1,7 @@
 import { redirect } from "next/navigation";
 import { getSession } from "@/lib/auth";
 import { getSiteSettings } from "@/lib/settings";
-import { updateSiteLogoAction } from "../actions";
+import { updateSiteLogoAction, changeAdminPasswordAction } from "../actions";
 import { MAX_LOGO_BYTES } from "@/lib/image";
 
 export const dynamic = "force-dynamic";
@@ -58,6 +58,49 @@ export default async function AdminSettingsPage({
             <button className="text-xs text-[color:var(--danger)] hover:underline">ลบโลโก้ (กลับไปใช้ค่าเริ่มต้น)</button>
           </form>
         )}
+      </div>
+
+      {/* เปลี่ยนรหัสผ่านแอดมิน */}
+      <div className="rsl-card p-6 max-w-xl mt-6">
+        <h2 className="font-bold mb-1">เปลี่ยนรหัสผ่านแอดมิน</h2>
+        <p className="text-xs text-[color:var(--text-dim)] mb-4">
+          ต้องยืนยันรหัสปัจจุบันก่อน · รหัสใหม่อย่างน้อย 8 ตัวอักษร
+        </p>
+        <form action={changeAdminPasswordAction} className="space-y-3 max-w-sm">
+          <div>
+            <label className="block text-sm font-semibold mb-1">รหัสผ่านปัจจุบัน</label>
+            <input
+              type="password"
+              name="currentPassword"
+              required
+              autoComplete="current-password"
+              className="w-full bg-[color:var(--bg-soft)] border border-[color:var(--border)] rounded-lg px-3 py-2.5 outline-none focus:border-[color:var(--brand)]"
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-semibold mb-1">รหัสผ่านใหม่</label>
+            <input
+              type="password"
+              name="newPassword"
+              required
+              minLength={8}
+              autoComplete="new-password"
+              className="w-full bg-[color:var(--bg-soft)] border border-[color:var(--border)] rounded-lg px-3 py-2.5 outline-none focus:border-[color:var(--brand)]"
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-semibold mb-1">ยืนยันรหัสผ่านใหม่</label>
+            <input
+              type="password"
+              name="confirmPassword"
+              required
+              minLength={8}
+              autoComplete="new-password"
+              className="w-full bg-[color:var(--bg-soft)] border border-[color:var(--border)] rounded-lg px-3 py-2.5 outline-none focus:border-[color:var(--brand)]"
+            />
+          </div>
+          <button className="rsl-btn rsl-btn-primary text-sm">เปลี่ยนรหัสผ่าน</button>
+        </form>
       </div>
     </div>
   );

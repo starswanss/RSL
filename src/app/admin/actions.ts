@@ -2,6 +2,7 @@
 
 import { redirect } from "next/navigation";
 import { updateTag } from "next/cache";
+import bcrypt from "bcryptjs";
 import { z } from "zod";
 import { TAGS } from "@/lib/cache";
 import {
@@ -54,6 +55,30 @@ export async function loginAction(
 export async function logoutAction() {
   await destroySession();
   redirect("/admin/login");
+}
+
+// เปลี่ยนรหัสผ่านแอดมิน (ต้องยืนยันรหัสเดิมก่อน)
+export async function changeAdminPasswordAction(formData: FormData) {
+  const admin = await assertAdmin();
+  const current = String(formData.get("currentPassword") || "");
+  const next = String(formData.get("newPassword") || "");
+  const confirm = String(formData.get("confirmPassword") || "");
+
+  if (next.length < 8)
+    back("/admin/settings", "รหัสใหม่ต้องยาวอย่างน้อย 8 ตัวอักษร", true);
+  if (next !== confirm)
+    back("/admin/settings", "รหัสใหม่กับช่องยืนยันไม่ตรงกัน", true);
+
+  const user = await prisma.user.findUnique({ where: { id: admin.id } });
+  if (!user) back("/admin/settings", "ไม่พบบัญชีผู้ใช้", true);
+  const valid = await bcrypt.compare(current, user!.passwordHash);
+  if (!valid) back("/admin/settings", "รหัสผ่านปัจจุบันไม่ถูกต้อง", true);
+  if (current === next)
+    back("/admin/settings", "รหัสใหม่ต้องไม่ซ้ำกับรหัสเดิม", true);
+
+  const passwordHash = await bcrypt.hash(next, 10);
+  await prisma.user.update({ where: { id: admin.id }, data: { passwordHash } });
+  back("/admin/settings", "เปลี่ยนรหัสผ่านเรียบร้อย");
 }
 
 // ===================== APPROVALS =====================

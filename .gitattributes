@@ -1,0 +1,6 @@
+# บังคับ line-ending เป็น LF สำหรับไฟล์ที่รันใน Linux container
+# กันปัญหา "bad interpreter" ตอน deploy (Windows มักแปลงเป็น CRLF)
+* text=auto
+*.sh text eol=lf
+docker-entrypoint.sh text eol=lf
+Dockerfile text eol=lf

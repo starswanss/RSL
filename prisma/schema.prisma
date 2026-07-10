@@ -6,12 +6,12 @@
 
 generator client {
   provider      = "prisma-client-js"
-  // native = เครื่อง dev, debian = container ตอน deploy (node:22-slim)
-  binaryTargets = ["native", "debian-openssl-3.0.x"]
+  // native = เครื่อง dev, rhel = runtime ของ Vercel (serverless)
+  binaryTargets = ["native", "rhel-openssl-3.0.x"]
 }
 
 datasource db {
-  provider = "sqlite"
+  provider = "postgresql"
   url      = env("DATABASE_URL")
 }
 

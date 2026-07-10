@@ -1,143 +1,80 @@
-# คู่มือ Deploy RSL (SQLite + Volume ถาวร)
+# คู่มือ Deploy RSL แบบฟรี (Vercel + Neon Postgres)
 
-เว็บนี้เป็น **read เยอะ / write น้อย** จึงเหมาะกับการรัน **instance เดียว + SQLite บน disk ถาวร**
-มี cache layer ช่วยลดภาระ DB อยู่แล้ว จึงรับผู้ใช้พร้อมกันจำนวนมากได้โดยไม่ล้ม
+**ฟรีจริง ไม่ต้องใช้บัตรเครดิต** ทั้ง Vercel และ Neon
+เว็บรันบน Vercel (auto-scale + CDN) · ฐานข้อมูล Postgres ฟรีบน Neon · มี cache layer ช่วยลด DB read อยู่แล้ว → รับนักเรียนพร้อมกันเยอะได้โดยไม่ล้ม
 
-> ⚠️ **กฎเหล็กของ SQLite:** ต้องรัน **เครื่องเดียวเท่านั้น** ห้าม scale เกิน 1 instance
-> (หลายเครื่องจะเขียนไฟล์คนละก๊อป ข้อมูลเพี้ยน) — config ที่ให้มาตั้งไว้ให้แล้ว
-
-ไฟล์ที่เตรียมให้แล้วในโปรเจกต์: `Dockerfile`, `.dockerignore`, `docker-entrypoint.sh`, `fly.toml`
+> โปรเจกต์นี้ย้ายจาก SQLite มาเป็น **PostgreSQL** แล้ว (deploy ฟรีบน serverless ได้)
 
 ---
 
-## 0) Environment Variables ที่ต้องตั้งบน host (ห้าม commit)
+## ขั้นที่ 1 — สร้างฐานข้อมูล Neon (ฟรี ไม่ใช้บัตร)
 
-| ตัวแปร | ค่า | หมายเหตุ |
-|---|---|---|
-| `DATABASE_URL` | `file:/data/prod.db` | ไฟล์ DB อยู่บน volume ถาวร (ไม่ใช่ในโฟลเดอร์แอป) |
-| `AUTH_SECRET` | สุ่มยาว ≥ 32 ตัว | **สุ่มใหม่** อย่าใช้ค่าเดิมของ dev |
-| `ADMIN_USERNAME` | เช่น `admin` | บัญชีแอดมินตอน seed |
-| `ADMIN_PASSWORD` | **รหัสใหม่ที่แข็งแรง** | ⚠️ ห้ามใช้ `rsladmin123` |
-
-สุ่ม `AUTH_SECRET`:
-```bash
-openssl rand -hex 32
-# หรือ: node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"
-```
-
-> ต้องตั้ง `ADMIN_PASSWORD` **ก่อน** สั่ง seed (seed สร้างแอดมินจากค่านี้)
+1. ไป https://neon.tech → **Sign up** (ล็อกอินด้วย GitHub ได้)
+2. **Create project** → ตั้งชื่อ เช่น `rsl` → region เลือก **Singapore (ap-southeast-1)** (ใกล้ไทย)
+3. หน้า **Connect** → คัดลอก **Connection string** แบบ **Pooled connection** (สำคัญ: ต้องมีคำว่า `-pooler` ในโฮสต์)
+   - หน้าตาประมาณ: `postgresql://user:pass@ep-xxx-pooler.ap-southeast-1.aws.neon.tech/rsl?sslmode=require`
 
 ---
 
-## วิธี A — Fly.io (แนะนำ: ยกข้อมูลเดิมขึ้นได้ง่าย)
+## ขั้นที่ 2 — สร้างตาราง + ใส่ข้อมูลลง Neon
 
-### 1. ติดตั้ง CLI + ล็อกอิน
+ทำในเครื่องครั้งเดียว (โฟลเดอร์ RSL):
+
 ```bash
-# Windows (PowerShell): iwr https://fly.io/install.ps1 -useb | iex
-# macOS/Linux:          curl -L https://fly.io/install.sh | sh
-fly auth signup   # หรือ fly auth login
+# 1) ใส่ connection string ของ Neon ลงไฟล์ .env
+#    DATABASE_URL="postgresql://...-pooler...neon.tech/rsl?sslmode=require"
+
+# 2) สร้างตารางทั้งหมดบน Neon
+npx prisma db push
+
+# 3a) ย้ายข้อมูลเดิม (3 เกม, ทีม/ผู้เล่นทั้งหมด) ขึ้น Neon
+npx tsx scripts/import-data.mts prisma/backup-data.json
+#     — หรือถ้าอยากเริ่มใหม่สะอาด ๆ ใช้ 3b แทน —
+# 3b) npm run db:seed   # ใส่แค่ 3 เกม + แอดมิน (ยังไม่มีทีม)
 ```
 
-### 2. สร้างแอป (ยังไม่ deploy)
-```bash
-cd RSL
-fly launch --no-deploy
-```
-- ถามชื่อ app → ตั้งชื่อไม่ซ้ำใคร แล้วแก้บรรทัด `app = "..."` ใน `fly.toml` ให้ตรง
-- ถ้าถามว่าจะสร้าง Postgres/Redis ไหม → **ตอบ No** (เราใช้ SQLite)
-- region → เลือก `sin` (สิงคโปร์)
-
-### 3. สร้าง volume ถาวร (เก็บ SQLite)
-```bash
-fly volumes create rsl_data --region sin --size 1   # 1GB พอเหลือเฟือ
-```
-
-### 4. ตั้งความลับ (secrets)
-```bash
-fly secrets set \
-  AUTH_SECRET="<ค่าที่สุ่มได้>" \
-  ADMIN_USERNAME="admin" \
-  ADMIN_PASSWORD="<รหัสใหม่ที่แข็งแรง>"
-```
-(`DATABASE_URL` และ `PORT` อยู่ใน `fly.toml` แล้ว ไม่ต้องตั้งซ้ำ)
-
-### 5. Deploy
-```bash
-fly deploy
-```
-ตอน boot ระบบจะรัน `prisma db push` สร้างตารางบน volume ให้อัตโนมัติ
-
-### 6. Seed ครั้งแรก (3 เกม + แอดมิน)
-```bash
-fly ssh console -C "npm run db:seed"
-```
-
-### 7. (ทางเลือก) ยกข้อมูลจากเครื่อง dev ขึ้นไปเลย
-ข้อมูลปัจจุบัน (ทีม/ข่าว/โลโก้) อยู่ในไฟล์ `prisma/dev.db` เครื่องนี้ schema ตรงกับ prod อยู่แล้ว
-อัปโหลดทับได้เลย (ข้ามขั้นที่ 6 ได้ถ้าทำอันนี้):
-```bash
-fly ssh sftp shell
-# ในโหมด sftp พิมพ์:
-put ./prisma/dev.db /data/prod.db
-# แล้ว Ctrl+C ออก จากนั้น restart:
-fly apps restart <ชื่อ-app>
-```
-
-เปิดเว็บ: `fly open`
+> `prisma/backup-data.json` คือข้อมูลที่ export ไว้ก่อนย้าย DB (มีอยู่แล้วในเครื่อง)
 
 ---
 
-## วิธี B — Railway (UI ง่าย ไม่ต้องใช้ CLI)
+## ขั้นที่ 3 — Deploy บน Vercel (ฟรี ไม่ใช้บัตร)
 
-1. เข้า https://railway.app → **New Project → Deploy from GitHub repo** → เลือก `starswanss/RSL`
-   (Railway จะเจอ `Dockerfile` แล้ว build ให้เอง)
-2. เปิด service → แท็บ **Variables** → เพิ่ม:
-   - `DATABASE_URL` = `file:/data/prod.db`
-   - `AUTH_SECRET` = `<ค่าที่สุ่มได้>`
-   - `ADMIN_USERNAME` = `admin`
-   - `ADMIN_PASSWORD` = `<รหัสใหม่>`
-   (Railway ตั้ง `PORT` ให้อัตโนมัติ)
-3. แท็บ **Settings → Volumes** → **Add Volume** → mount path = `/data`
-4. **Deploy** (Railway build จาก Dockerfile) — boot แล้วรัน `prisma db push` ให้เอง
-5. Seed ครั้งแรก: ติดตั้ง Railway CLI แล้ว
-   ```bash
-   railway run npm run db:seed
-   ```
-   (หรือเพิ่ม `npm run db:seed` เป็น one-off command ในแดชบอร์ด)
+1. ไป https://vercel.com → **Sign up** ด้วย GitHub
+2. **Add New → Project** → เลือก repo **`starswanss/RSL`** → **Import**
+3. ก่อนกด Deploy เปิด **Environment Variables** ใส่ 4 ตัว:
 
-> Railway ยกไฟล์ dev.db ขึ้น volume ตรง ๆ ได้ยากกว่า Fly — ถ้าอยากพกข้อมูลเดิมไปด้วย แนะนำใช้วิธี A
+   | Key | Value |
+   |---|---|
+   | `DATABASE_URL` | connection string **pooled** ของ Neon (อันเดียวกับขั้นที่ 2) |
+   | `AUTH_SECRET` | `c7135094a259e93488e5b5e88c2a9dd9399084207ff94e7d6d70650fb061744d` (สุ่มให้แล้ว) |
+   | `ADMIN_USERNAME` | `admin` |
+   | `ADMIN_PASSWORD` | **รหัสใหม่ที่แข็งแรง** (อย่าใช้ rsladmin123) |
+
+4. กด **Deploy** — Vercel จะ `prisma generate && next build` ให้อัตโนมัติ
+5. เสร็จแล้วกดเปิดลิงก์เว็บที่ Vercel ให้มา
+
+> เปลี่ยนโค้ดแล้ว push ขึ้น GitHub → Vercel auto-deploy ให้เองทุกครั้ง
 
 ---
 
-## หลัง deploy — ตรวจ 4 ข้อ
+## หลัง deploy — ตรวจ 3 ข้อ
 
-- [ ] เข้าเว็บหน้าแรกได้ (โหลดเกม/ทีมขึ้น)
-- [ ] เข้า `/admin` ล็อกอินด้วย **รหัสใหม่** ได้ (ไม่ใช่ `rsladmin123`)
-- [ ] เพิ่ม/แก้ข้อมูลในหลังบ้าน แล้วหน้าเว็บอัปเดต (cache invalidate ทำงาน)
-- [ ] ลองปิด-เปิด deploy ใหม่ แล้วข้อมูล **ยังอยู่** (พิสูจน์ว่า volume ถาวร)
-
----
-
-## สำรองข้อมูล (สำคัญ)
-
-SQLite = ไฟล์เดียว สำรองง่ายมาก ทำสม่ำเสมอ:
-```bash
-# Fly:
-fly ssh console -C "cat /data/prod.db" > backup-$(date +%F).db
-```
-เก็บไฟล์สำรองไว้ที่ปลอดภัย เผื่อ volume เสีย
+- [ ] เปิดหน้าแรกได้ เห็นเกม/ทีมครบ
+- [ ] เข้า `/admin` ล็อกอินด้วย **รหัสใหม่** ได้
+- [ ] แก้ข้อมูลหลังบ้าน → หน้าเว็บอัปเดต (cache invalidate ทำงาน)
 
 ---
 
-## อัปเดตเว็บภายหลัง
+## สำหรับรันในเครื่อง (dev) ต่อไป
 
-แก้โค้ด → push ขึ้น GitHub → `fly deploy` (หรือ Railway auto-deploy จาก GitHub)
-`prisma db push` ตอน boot จะ sync schema ใหม่ให้เอง โดยไม่ลบข้อมูล
+ตอนนี้ใช้ Postgres แล้ว จึงต้องมี `DATABASE_URL` ของ Postgres ใน `.env`
+ง่ายสุด: ใช้ Neon URL อันเดียวกับ prod ได้เลย (หรือสร้าง Neon อีกโปรเจกต์แยกไว้ทดสอบ) แล้ว `npm run dev` ตามปกติ
 
 ---
 
-## ข้อควรระวัง
+## ข้อควรรู้
 
-- **ห้าม scale เกิน 1 machine** (SQLite) — `fly.toml` ล็อกไว้ที่ 1 แล้ว
-- โลโก้เก็บเป็น data URL ใน DB — ถ้าอัปโหลดรูปใหญ่หลายอัน DB จะโต (จำกัดไว้ 512KB/รูปแล้ว)
-- อยากได้ปุ่ม "เปลี่ยนรหัสแอดมิน" ในหน้าเว็บแทนการตั้งผ่าน env — บอกได้ เดี๋ยวทำให้
+- **ต้องใช้ connection string แบบ pooled** (มี `-pooler`) — serverless เปิด connection เยอะ ถ้าใช้แบบ direct จะเต็มแล้วล้ม
+- Neon ฟรีจะ "หลับ" เมื่อไม่มีคนใช้ แล้วตื่นเองตอนมีคนเข้า (ช้าครั้งแรกเสี้ยววินาที) — cache ที่ทำไว้ช่วยให้ส่วนใหญ่ไม่ต้องปลุก DB
+- โลโก้เก็บเป็น data URL ใน DB (จำกัด 512KB/รูป) — Postgres รองรับสบาย
+- อยากได้ปุ่ม "เปลี่ยนรหัสแอดมิน" ในหน้าเว็บแทน env — บอกได้ เดี๋ยวทำให้

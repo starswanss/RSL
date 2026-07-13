@@ -17,6 +17,15 @@ const initial: SubmitState = { ok: false, message: "" };
 const input =
   "w-full bg-[color:var(--bg-soft)] border border-[color:var(--border)] rounded-lg px-3 py-2.5 outline-none focus:border-[color:var(--brand)]";
 
+// ผลที่เป็นไปได้ของ BO n (ผู้ชนะต้องได้ ceil(n/2) เกม, ห้ามเสมอ)
+function scorelines(bestOf: number) {
+  const w = Math.ceil(bestOf / 2);
+  const lines: { h: number; a: number }[] = [];
+  for (let l = 0; l < w; l++) lines.push({ h: w, a: l }); // ทีมเหย้าชนะ
+  for (let l = w - 1; l >= 0; l--) lines.push({ h: l, a: w }); // ทีมเยือนชนะ
+  return lines;
+}
+
 function Btn() {
   const { pending } = useFormStatus();
   return (
@@ -29,6 +38,7 @@ function Btn() {
 export function BracketSubmitForm({ matches }: { matches: MatchOption[] }) {
   const [state, action] = useActionState(submitBracketResult, initial);
   const [sel, setSel] = useState<MatchOption | null>(null);
+  const [score, setScore] = useState<{ h: number; a: number } | null>(null);
 
   return (
     <form action={action} className="rsl-card p-6 space-y-4">
@@ -39,7 +49,10 @@ export function BracketSubmitForm({ matches }: { matches: MatchOption[] }) {
           name="matchId"
           required
           defaultValue=""
-          onChange={(e) => setSel(matches.find((m) => m.id === e.target.value) || null)}
+          onChange={(e) => {
+            setSel(matches.find((m) => m.id === e.target.value) || null);
+            setScore(null);
+          }}
           className={input}
         >
           <option value="" disabled>— เลือกแมตช์ที่แข่งจบแล้ว —</option>
@@ -48,21 +61,33 @@ export function BracketSubmitForm({ matches }: { matches: MatchOption[] }) {
           ))}
         </select>
       </div>
-      <div className="grid grid-cols-2 gap-4">
-        <div>
-          <label className="block text-sm font-semibold mb-1">สกอร์ {sel?.homeName ?? "ทีมเหย้า"}</label>
-          <input type="number" name="homeScore" min={0} max={9} required className={input} />
-        </div>
-        <div>
-          <label className="block text-sm font-semibold mb-1">สกอร์ {sel?.awayName ?? "ทีมเยือน"}</label>
-          <input type="number" name="awayScore" min={0} max={9} required className={input} />
-        </div>
+      <div>
+        <label className="block text-sm font-semibold mb-1">
+          ผลการแข่งขัน {sel ? `(BO${sel.bestOf})` : ""} *
+        </label>
+        <select
+          required
+          disabled={!sel}
+          value={score ? `${score.h}-${score.a}` : ""}
+          onChange={(e) => {
+            const [h, a] = e.target.value.split("-").map(Number);
+            setScore({ h, a });
+          }}
+          className={`${input} disabled:opacity-50`}
+        >
+          <option value="" disabled>
+            {sel ? "— เลือกผล (ทีมชนะ–แพ้) —" : "— เลือกแมตช์ก่อน —"}
+          </option>
+          {sel &&
+            scorelines(sel.bestOf).map(({ h, a }) => (
+              <option key={`${h}-${a}`} value={`${h}-${a}`}>
+                {sel.homeName} {h} - {a} {sel.awayName}
+              </option>
+            ))}
+        </select>
+        <input type="hidden" name="homeScore" value={score?.h ?? ""} />
+        <input type="hidden" name="awayScore" value={score?.a ?? ""} />
       </div>
-      {sel && (
-        <p className="text-xs text-[color:var(--text-dim)] -mt-2">
-          BO{sel.bestOf} — ผู้ชนะต้องได้ {Math.ceil(sel.bestOf / 2)} เกม
-        </p>
-      )}
       <div className="grid sm:grid-cols-2 gap-4">
         <div>
           <label className="block text-sm font-semibold mb-1">ชื่อผู้ส่งผล *</label>

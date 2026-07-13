@@ -68,23 +68,27 @@ export function BrSubmitForm({ lobbies }: { lobbies: LobbyOption[] }) {
                   <tr key={t.id} className="border-b border-[color:var(--border)] last:border-0">
                     <td className="px-3 py-2 font-medium">{t.name} <span className="text-xs text-[color:var(--text-dim)]">({t.tag})</span></td>
                     <td className="px-2 py-1.5">
-                      <input
-                        type="number"
+                      <select
                         name={`placement_${t.id}`}
-                        min={1}
-                        max={sel.teams.length}
-                        placeholder="-"
+                        defaultValue=""
                         className="w-full bg-[color:var(--bg-soft)] border border-[color:var(--border)] rounded px-2 py-1.5 text-center outline-none focus:border-[color:var(--brand)]"
-                      />
+                      >
+                        <option value="">-</option>
+                        {Array.from({ length: sel.teams.length }, (_, i) => i + 1).map((n) => (
+                          <option key={n} value={n}>{n}</option>
+                        ))}
+                      </select>
                     </td>
                     <td className="px-2 py-1.5">
-                      <input
-                        type="number"
+                      <select
                         name={`kills_${t.id}`}
-                        min={0}
-                        defaultValue={0}
+                        defaultValue="0"
                         className="w-full bg-[color:var(--bg-soft)] border border-[color:var(--border)] rounded px-2 py-1.5 text-center outline-none focus:border-[color:var(--brand)]"
-                      />
+                      >
+                        {Array.from({ length: 31 }, (_, i) => i).map((n) => (
+                          <option key={n} value={n}>{n}</option>
+                        ))}
+                      </select>
                     </td>
                   </tr>
                 ))}

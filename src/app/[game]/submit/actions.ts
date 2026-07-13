@@ -13,6 +13,29 @@ import {
 
 export type SubmitState = { ok: boolean; message: string };
 
+// อ่าน+ตรวจไฟล์หลักฐานที่อัปผ่าน UploadThing (ฝั่ง client ส่งมาเป็น JSON)
+function readProofFiles(
+  formData: FormData
+): { key: string; url: string; name: string }[] | null {
+  let arr: unknown;
+  try {
+    arr = JSON.parse(String(formData.get("proofFiles") || "[]"));
+  } catch {
+    return null;
+  }
+  if (!Array.isArray(arr) || arr.length === 0 || arr.length > 5) return null;
+  const files = arr.map((x) => {
+    const o = (x ?? {}) as Record<string, unknown>;
+    return {
+      key: String(o.key || ""),
+      url: String(o.url || ""),
+      name: String(o.name || ""),
+    };
+  });
+  if (files.some((f) => !f.key || !/^https?:\/\//.test(f.url))) return null;
+  return files;
+}
+
 // ---------- BRACKET (RoV / FC) ----------
 const bracketSchema = z.object({
   matchId: z.string().min(1),
@@ -20,7 +43,6 @@ const bracketSchema = z.object({
   submitterTeam: z.string().optional(),
   homeScore: z.coerce.number().int().min(0).max(9),
   awayScore: z.coerce.number().int().min(0).max(9),
-  proofUrl: z.string().url("กรุณาแนบลิงก์ภาพสกอร์บอร์ดเป็นหลักฐาน (จำเป็น)"),
   note: z.string().optional(),
 });
 
@@ -39,6 +61,10 @@ export async function submitBracketResult(
   const d = parsed.data;
   if (d.homeScore === d.awayScore)
     return { ok: false, message: "สกอร์เสมอไม่ได้ (Best-of-N)" };
+
+  const proofFiles = readProofFiles(formData);
+  if (!proofFiles)
+    return { ok: false, message: "กรุณาแนบรูปหลักฐานอย่างน้อย 1 รูป (สูงสุด 5 รูป)" };
 
   const match = await prisma.match.findUnique({
     where: { id: d.matchId },
@@ -78,7 +104,7 @@ export async function submitBracketResult(
         submitterTeam: d.submitterTeam || null,
         homeScore: d.homeScore,
         awayScore: d.awayScore,
-        proofUrl: d.proofUrl,
+        proofFiles: JSON.stringify(proofFiles),
         note: d.note || null,
         submitterIp: ip,
         userAgent,
@@ -109,11 +135,11 @@ export async function submitBrResult(
   const brMatchId = String(formData.get("brMatchId") || "");
   const submitterName = String(formData.get("submitterName") || "");
   const note = String(formData.get("note") || "");
-  const proofUrl = String(formData.get("proofUrl") || "").trim();
   if (submitterName.trim().length < 2)
     return { ok: false, message: "กรุณากรอกชื่อผู้ส่ง" };
-  if (!z.string().url().safeParse(proofUrl).success)
-    return { ok: false, message: "กรุณาแนบลิงก์ภาพสกอร์บอร์ดเป็นหลักฐาน (จำเป็น)" };
+  const proofFiles = readProofFiles(formData);
+  if (!proofFiles)
+    return { ok: false, message: "กรุณาแนบรูปหลักฐานอย่างน้อย 1 รูป (สูงสุด 5 รูป)" };
 
   const lobby = await prisma.brMatch.findUnique({ where: { id: brMatchId } });
   if (!lobby) return { ok: false, message: "ไม่พบล็อบบี้" };
@@ -167,7 +193,7 @@ export async function submitBrResult(
         brMatchId,
         submitterName,
         note: note || null,
-        proofUrl,
+        proofFiles: JSON.stringify(proofFiles),
         submitterIp: ip,
         userAgent,
         rows: { create: rows },

@@ -49,6 +49,9 @@ npx tsx scripts/import-data.mts prisma/backup-data.json
    | `AUTH_SECRET` | `c7135094a259e93488e5b5e88c2a9dd9399084207ff94e7d6d70650fb061744d` (สุ่มให้แล้ว) |
    | `ADMIN_USERNAME` | `admin` |
    | `ADMIN_PASSWORD` | **รหัสใหม่ที่แข็งแรง** (อย่าใช้ rsladmin123) |
+   | `UPLOADTHING_TOKEN` | token จาก uploadthing.com (สำหรับอัปรูปหลักฐาน) |
+
+   > **UploadThing** (ที่เก็บรูปหลักฐานที่ผู้ส่งผลอัปโหลด): สมัครฟรีที่ https://uploadthing.com → Create app → **API Keys** → คัดลอก token มาใส่ทั้งใน `.env` เครื่อง และ env ของ Vercel · ฟรี ~2GB · ล้างไฟล์ได้ที่ `/admin/settings` เพื่อกันพื้นที่เต็ม
 
 4. กด **Deploy** — Vercel จะ `prisma generate && next build` ให้อัตโนมัติ
 5. เสร็จแล้วกดเปิดลิงก์เว็บที่ Vercel ให้มา

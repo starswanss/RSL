@@ -15,6 +15,32 @@ import { computePoints } from "@/lib/br";
 export const dynamic = "force-dynamic";
 export const metadata = { title: "ตรวจผลแข่ง" };
 
+// แสดงรูปหลักฐานที่อัปผ่าน UploadThing (เก็บเป็น JSON [{url,name}])
+function ProofFiles({ json }: { json: string | null }) {
+  if (!json) return null;
+  let files: { url: string; name: string }[] = [];
+  try {
+    files = JSON.parse(json);
+  } catch {
+    return null;
+  }
+  if (!files.length) return null;
+  return (
+    <div className="mt-2 flex flex-wrap gap-2">
+      {files.map((f, i) => (
+        <a key={i} href={f.url} target="_blank" rel="noopener noreferrer" title={f.name}>
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src={f.url}
+            alt={f.name}
+            className="w-16 h-16 object-cover rounded-lg border border-[color:var(--border)] hover:opacity-80"
+          />
+        </a>
+      ))}
+    </div>
+  );
+}
+
 export default async function AdminDashboard({
   searchParams,
 }: {
@@ -105,6 +131,7 @@ export default async function AdminDashboard({
                       <> · <a href={s.proofUrl} target="_blank" rel="noopener noreferrer" className="text-[color:var(--accent)] underline">หลักฐาน</a></>
                     )}
                   </div>
+                  <ProofFiles json={s.proofFiles} />
                   {(s.submitterIp || s.userAgent) && (
                     <div className="text-[10px] text-[color:var(--text-dim)] mt-1 opacity-70 truncate">
                       IP: {s.submitterIp || "-"}{s.userAgent ? ` · ${s.userAgent}` : ""}
@@ -171,6 +198,7 @@ export default async function AdminDashboard({
                     <> · <a href={s.proofUrl} target="_blank" rel="noopener noreferrer" className="text-[color:var(--accent)] underline">หลักฐาน</a></>
                   )}
                 </div>
+                <ProofFiles json={s.proofFiles} />
                 {(s.submitterIp || s.userAgent) && (
                   <div className="text-[10px] text-[color:var(--text-dim)] mt-1 opacity-70 truncate">
                     IP: {s.submitterIp || "-"}{s.userAgent ? ` · ${s.userAgent}` : ""}

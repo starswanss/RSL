@@ -4,6 +4,7 @@ import { useActionState, useState } from "react";
 import { useFormStatus } from "react-dom";
 import { submitBracketResult, type SubmitState } from "./actions";
 import { HoneypotFields } from "./HoneypotFields";
+import { ProofUploader } from "./ProofUploader";
 
 export type MatchOption = {
   id: string;
@@ -98,13 +99,7 @@ export function BracketSubmitForm({ matches }: { matches: MatchOption[] }) {
           <input name="submitterTeam" className={input} />
         </div>
       </div>
-      <div>
-        <label className="block text-sm font-semibold mb-1">ลิงก์ภาพสกอร์บอร์ด (หลักฐาน) *</label>
-        <input type="url" name="proofUrl" required placeholder="https://..." className={input} />
-        <p className="text-xs text-[color:var(--text-dim)] mt-1">
-          แนบลิงก์รูปสกอร์บอร์ด (เช่น Google Drive, imgur) เพื่อให้แอดมินตรวจสอบได้
-        </p>
-      </div>
+      <ProofUploader />
       <div>
         <label className="block text-sm font-semibold mb-1">หมายเหตุ</label>
         <textarea name="note" rows={2} className={input} />

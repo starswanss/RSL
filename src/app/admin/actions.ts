@@ -19,6 +19,7 @@ import { parseTeamsWorkbook } from "@/lib/import";
 import { parseDatetimeLocalTH } from "@/lib/format";
 import { fileToDataUrl } from "@/lib/image";
 import { setSiteLogo } from "@/lib/settings";
+import { utapi } from "@/lib/uploadthing-server";
 
 export type ActionState = { ok: boolean; message: string };
 
@@ -182,6 +183,44 @@ export async function createGameAction(
   });
   bust(TAGS.games);
   return { ok: true, message: "เพิ่มเกมเรียบร้อย" };
+}
+
+// ล้างไฟล์หลักฐานทั้งหมดออกจาก UploadThing (กันพื้นที่เต็ม)
+export async function clearAllProofFilesAction() {
+  await assertAdmin();
+  const [bracketSubs, brSubs] = await Promise.all([
+    prisma.resultSubmission.findMany({
+      where: { proofFiles: { not: null } },
+      select: { proofFiles: true },
+    }),
+    prisma.brSubmission.findMany({
+      where: { proofFiles: { not: null } },
+      select: { proofFiles: true },
+    }),
+  ]);
+  const keys: string[] = [];
+  for (const s of [...bracketSubs, ...brSubs]) {
+    try {
+      const arr = JSON.parse(s.proofFiles!) as { key?: string }[];
+      for (const f of arr) if (f.key) keys.push(f.key);
+    } catch {}
+  }
+  try {
+    if (keys.length) await utapi.deleteFiles(keys);
+  } catch {
+    back("/admin/settings", "ลบไฟล์จาก UploadThing ไม่สำเร็จ (ตรวจ UPLOADTHING_TOKEN)", true);
+  }
+  await Promise.all([
+    prisma.resultSubmission.updateMany({
+      where: { proofFiles: { not: null } },
+      data: { proofFiles: null },
+    }),
+    prisma.brSubmission.updateMany({
+      where: { proofFiles: { not: null } },
+      data: { proofFiles: null },
+    }),
+  ]);
+  back("/admin/settings", `ล้างไฟล์หลักฐานแล้ว (${keys.length} ไฟล์)`);
 }
 
 // ===================== LOGOS (เว็บ + เกม) =====================

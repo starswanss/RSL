@@ -125,7 +125,8 @@ model ResultSubmission {
   homeScore     Int
   awayScore     Int
   note          String?
-  proofUrl      String?
+  proofUrl      String? // (legacy) ลิงก์หลักฐานเดี่ยว
+  proofFiles    String? // JSON: [{key,url,name}] ไฟล์ที่อัปผ่าน UploadThing
   status        String    @default("PENDING") // PENDING | APPROVED | REJECTED
   adminNote     String?
   reviewedBy    User?     @relation("ReviewedBy", fields: [reviewedById], references: [id])
@@ -176,7 +177,8 @@ model BrSubmission {
   brMatchId     String
   submitterName String
   note          String?
-  proofUrl      String?
+  proofUrl      String? // (legacy) ลิงก์หลักฐานเดี่ยว
+  proofFiles    String? // JSON: [{key,url,name}] ไฟล์ที่อัปผ่าน UploadThing
   status        String    @default("PENDING") // PENDING | APPROVED | REJECTED
   adminNote     String?
   reviewedBy    User?     @relation("BrReviewedBy", fields: [reviewedById], references: [id])

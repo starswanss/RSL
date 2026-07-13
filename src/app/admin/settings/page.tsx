@@ -3,6 +3,7 @@ import { getSession } from "@/lib/auth";
 import { getSiteSettings } from "@/lib/settings";
 import { updateSiteLogoAction, changeAdminPasswordAction } from "../actions";
 import { SubmitButton } from "@/components/SubmitButton";
+import { ClearProofFilesButton } from "./ClearProofFilesButton";
 import { MAX_LOGO_BYTES } from "@/lib/image";
 
 export const dynamic = "force-dynamic";
@@ -102,6 +103,15 @@ export default async function AdminSettingsPage({
           </div>
           <SubmitButton className="rsl-btn rsl-btn-primary text-sm" pendingText="กำลังเปลี่ยน...">เปลี่ยนรหัสผ่าน</SubmitButton>
         </form>
+      </div>
+
+      {/* จัดการพื้นที่เก็บไฟล์ (UploadThing) */}
+      <div className="rsl-card p-6 max-w-xl mt-6">
+        <h2 className="font-bold mb-1">พื้นที่เก็บรูปหลักฐาน</h2>
+        <p className="text-xs text-[color:var(--text-dim)] mb-4">
+          รูปที่ผู้ส่งผลแนบมาเก็บไว้ที่ UploadThing (ฟรี ~2GB) · กดล้างเป็นระยะเพื่อกันพื้นที่เต็ม
+        </p>
+        <ClearProofFilesButton />
       </div>
     </div>
   );

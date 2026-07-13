@@ -4,6 +4,7 @@ import { useActionState, useState } from "react";
 import { useFormStatus } from "react-dom";
 import { submitBrResult, type SubmitState } from "./actions";
 import { HoneypotFields } from "./HoneypotFields";
+import { ProofUploader } from "./ProofUploader";
 
 export type LobbyTeam = { id: string; name: string; tag: string };
 export type LobbyOption = {
@@ -101,16 +102,11 @@ export function BrSubmitForm({ lobbies }: { lobbies: LobbyOption[] }) {
         </div>
       )}
 
-      <div className="grid sm:grid-cols-2 gap-4">
-        <div>
-          <label className="block text-sm font-semibold mb-1">ชื่อผู้ส่งผล *</label>
-          <input name="submitterName" required className={input} />
-        </div>
-        <div>
-          <label className="block text-sm font-semibold mb-1">ลิงก์ภาพสกอร์บอร์ด (หลักฐาน) *</label>
-          <input type="url" name="proofUrl" required placeholder="https://..." className={input} />
-        </div>
+      <div>
+        <label className="block text-sm font-semibold mb-1">ชื่อผู้ส่งผล *</label>
+        <input name="submitterName" required className={input} />
       </div>
+      <ProofUploader />
       <div>
         <label className="block text-sm font-semibold mb-1">หมายเหตุ</label>
         <textarea name="note" rows={2} className={input} />

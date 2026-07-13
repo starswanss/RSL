@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { updateTeamAction } from "../actions";
+import { SubmitButton } from "@/components/SubmitButton";
 
 const input =
   "bg-[color:var(--bg-soft)] border border-[color:var(--border)] rounded-lg px-3 py-2 text-sm outline-none focus:border-[color:var(--brand)]";
@@ -79,7 +80,7 @@ export function TeamEditForm({
           />
         </div>
       )}
-      <button className="rsl-btn rsl-btn-primary text-sm">บันทึก</button>
+      <SubmitButton className="rsl-btn rsl-btn-primary text-sm" pendingText="กำลังบันทึก...">บันทึก</SubmitButton>
       <button
         type="button"
         onClick={() => setOpen(false)}

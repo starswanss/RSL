@@ -4,6 +4,7 @@ import { prisma } from "@/lib/prisma";
 import { GameForm } from "./GameForm";
 import { toggleGameAction, updateGameLogoAction } from "../actions";
 import { Pill } from "@/components/ui";
+import { SubmitButton } from "@/components/SubmitButton";
 import { FORMAT_LABEL } from "@/lib/games";
 import { MAX_LOGO_BYTES } from "@/lib/image";
 
@@ -53,9 +54,9 @@ export default async function AdminGamesPage({
               </div>
               <form action={toggleGameAction}>
                 <input type="hidden" name="id" value={g.id} />
-                <button className="rsl-btn rsl-btn-ghost text-sm">
+                <SubmitButton className="rsl-btn rsl-btn-ghost text-sm" pendingText="กำลังบันทึก...">
                   {g.active ? "ปิดใช้งาน" : "เปิดใช้งาน"}
-                </button>
+                </SubmitButton>
               </form>
             </div>
 
@@ -71,13 +72,13 @@ export default async function AdminGamesPage({
                   required
                   className="text-xs file:mr-2 file:rounded-lg file:border-0 file:bg-[color:var(--bg-soft)] file:border file:border-[color:var(--border)] file:px-2 file:py-1"
                 />
-                <button className="rsl-btn rsl-btn-ghost text-xs">อัปโหลด</button>
+                <SubmitButton className="rsl-btn rsl-btn-ghost text-xs" pendingText="กำลังอัปโหลด...">อัปโหลด</SubmitButton>
               </form>
               {g.logoUrl && (
                 <form action={updateGameLogoAction}>
                   <input type="hidden" name="gameId" value={g.id} />
                   <input type="hidden" name="remove" value="1" />
-                  <button className="text-xs text-[color:var(--danger)] hover:underline">ลบโลโก้</button>
+                  <SubmitButton className="text-xs text-[color:var(--danger)] hover:underline" pendingText="กำลังลบ...">ลบโลโก้</SubmitButton>
                 </form>
               )}
               <span className="text-[10px] text-[color:var(--text-dim)]">สูงสุด {Math.round(MAX_LOGO_BYTES / 1024)}KB</span>

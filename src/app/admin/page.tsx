@@ -8,6 +8,7 @@ import {
   rejectBrAction,
 } from "./actions";
 import { TeamLogo } from "@/components/ui";
+import { SubmitButton } from "@/components/SubmitButton";
 import { fmtDateTime } from "@/lib/format";
 import { computePoints } from "@/lib/br";
 
@@ -112,12 +113,12 @@ export default async function AdminDashboard({
                   <div className="mt-4 flex flex-wrap gap-2 items-center">
                     <form action={approveBracketAction}>
                       <input type="hidden" name="submissionId" value={s.id} />
-                      <button className="rsl-btn rsl-btn-primary text-sm">✓ อนุมัติ</button>
+                      <SubmitButton className="rsl-btn rsl-btn-primary text-sm" pendingText="กำลังอนุมัติ...">✓ อนุมัติ</SubmitButton>
                     </form>
                     <form action={rejectBracketAction} className="flex items-center gap-2 flex-1 min-w-[220px]">
                       <input type="hidden" name="submissionId" value={s.id} />
                       <input name="adminNote" placeholder="เหตุผลที่ปฏิเสธ" className="flex-1 bg-[color:var(--bg-soft)] border border-[color:var(--border)] rounded-lg px-3 py-2 text-sm outline-none" />
-                      <button className="rsl-btn rsl-btn-ghost text-sm text-[color:var(--danger)]">✕ ปฏิเสธ</button>
+                      <SubmitButton className="rsl-btn rsl-btn-ghost text-sm text-[color:var(--danger)]" pendingText="กำลังปฏิเสธ...">✕ ปฏิเสธ</SubmitButton>
                     </form>
                   </div>
                 </div>
@@ -178,12 +179,12 @@ export default async function AdminDashboard({
                 <div className="mt-4 flex flex-wrap gap-2 items-center">
                   <form action={approveBrAction}>
                     <input type="hidden" name="submissionId" value={s.id} />
-                    <button className="rsl-btn rsl-btn-primary text-sm">✓ อนุมัติ (อัปเดตคะแนน)</button>
+                    <SubmitButton className="rsl-btn rsl-btn-primary text-sm" pendingText="กำลังอนุมัติ...">✓ อนุมัติ (อัปเดตคะแนน)</SubmitButton>
                   </form>
                   <form action={rejectBrAction} className="flex items-center gap-2 flex-1 min-w-[220px]">
                     <input type="hidden" name="submissionId" value={s.id} />
                     <input name="adminNote" placeholder="เหตุผลที่ปฏิเสธ" className="flex-1 bg-[color:var(--bg-soft)] border border-[color:var(--border)] rounded-lg px-3 py-2 text-sm outline-none" />
-                    <button className="rsl-btn rsl-btn-ghost text-sm text-[color:var(--danger)]">✕ ปฏิเสธ</button>
+                    <SubmitButton className="rsl-btn rsl-btn-ghost text-sm text-[color:var(--danger)]" pendingText="กำลังปฏิเสธ...">✕ ปฏิเสธ</SubmitButton>
                   </form>
                 </div>
               </div>

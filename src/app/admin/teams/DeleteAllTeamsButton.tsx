@@ -1,6 +1,7 @@
 "use client";
 
 import { deleteAllTeamsAction } from "../actions";
+import { SubmitButton } from "@/components/SubmitButton";
 
 export function DeleteAllTeamsButton({
   gameId,
@@ -25,9 +26,9 @@ export function DeleteAllTeamsButton({
     >
       <input type="hidden" name="gameId" value={gameId} />
       <input type="hidden" name="confirmText" value="ลบทั้งหมด" />
-      <button className="rsl-btn rsl-btn-ghost text-sm text-[color:var(--danger)]">
+      <SubmitButton className="rsl-btn rsl-btn-ghost text-sm text-[color:var(--danger)]" pendingText="กำลังลบ...">
         🗑 ลบทีมทั้งหมด ({count})
-      </button>
+      </SubmitButton>
     </form>
   );
 }

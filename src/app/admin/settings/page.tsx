@@ -2,6 +2,7 @@ import { redirect } from "next/navigation";
 import { getSession } from "@/lib/auth";
 import { getSiteSettings } from "@/lib/settings";
 import { updateSiteLogoAction, changeAdminPasswordAction } from "../actions";
+import { SubmitButton } from "@/components/SubmitButton";
 import { MAX_LOGO_BYTES } from "@/lib/image";
 
 export const dynamic = "force-dynamic";
@@ -49,13 +50,13 @@ export default async function AdminSettingsPage({
             required
             className="text-sm file:mr-3 file:rounded-lg file:border-0 file:bg-[color:var(--brand)] file:px-3 file:py-1.5 file:text-[#1a1400] file:font-semibold"
           />
-          <button className="rsl-btn rsl-btn-primary text-sm">อัปโหลด / เปลี่ยนโลโก้</button>
+          <SubmitButton className="rsl-btn rsl-btn-primary text-sm" pendingText="กำลังอัปโหลด...">อัปโหลด / เปลี่ยนโลโก้</SubmitButton>
         </form>
 
         {logoUrl && (
           <form action={updateSiteLogoAction} className="mt-3">
             <input type="hidden" name="remove" value="1" />
-            <button className="text-xs text-[color:var(--danger)] hover:underline">ลบโลโก้ (กลับไปใช้ค่าเริ่มต้น)</button>
+            <SubmitButton className="text-xs text-[color:var(--danger)] hover:underline" pendingText="กำลังลบ...">ลบโลโก้ (กลับไปใช้ค่าเริ่มต้น)</SubmitButton>
           </form>
         )}
       </div>
@@ -99,7 +100,7 @@ export default async function AdminSettingsPage({
               className="w-full bg-[color:var(--bg-soft)] border border-[color:var(--border)] rounded-lg px-3 py-2.5 outline-none focus:border-[color:var(--brand)]"
             />
           </div>
-          <button className="rsl-btn rsl-btn-primary text-sm">เปลี่ยนรหัสผ่าน</button>
+          <SubmitButton className="rsl-btn rsl-btn-primary text-sm" pendingText="กำลังเปลี่ยน...">เปลี่ยนรหัสผ่าน</SubmitButton>
         </form>
       </div>
     </div>

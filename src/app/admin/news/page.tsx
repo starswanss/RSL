@@ -4,6 +4,7 @@ import { prisma } from "@/lib/prisma";
 import { NewsForm } from "./NewsForm";
 import { deleteNewsAction } from "../actions";
 import { Pill } from "@/components/ui";
+import { SubmitButton } from "@/components/SubmitButton";
 import { fmtDate } from "@/lib/format";
 
 export const dynamic = "force-dynamic";
@@ -42,7 +43,7 @@ export default async function AdminNewsPage({
             </div>
             <form action={deleteNewsAction}>
               <input type="hidden" name="id" value={n.id} />
-              <button className="rsl-btn rsl-btn-ghost text-sm text-[color:var(--danger)]">ลบ</button>
+              <SubmitButton className="rsl-btn rsl-btn-ghost text-sm text-[color:var(--danger)]" pendingText="กำลังลบ...">ลบ</SubmitButton>
             </form>
           </div>
         ))}

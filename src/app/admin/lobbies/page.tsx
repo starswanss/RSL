@@ -4,6 +4,7 @@ import { prisma } from "@/lib/prisma";
 import { AdminGamePicker } from "@/components/AdminGamePicker";
 import { createLobbyAction, deleteLobbyAction, recordBrResultAction } from "../actions";
 import { StatusBadge } from "@/components/ui";
+import { SubmitButton } from "@/components/SubmitButton";
 import { fmtDateTime } from "@/lib/format";
 
 export const dynamic = "force-dynamic";
@@ -75,7 +76,7 @@ export default async function AdminLobbiesPage({
               <label className="block text-xs text-[color:var(--text-dim)] mb-1">เวลาแข่ง</label>
               <input name="scheduledAt" type="datetime-local" className={input} />
             </div>
-            <button className="rsl-btn rsl-btn-primary text-sm">+ สร้างล็อบบี้</button>
+            <SubmitButton className="rsl-btn rsl-btn-primary text-sm" pendingText="กำลังสร้าง...">+ สร้างล็อบบี้</SubmitButton>
           </form>
 
           {groups.length === 0 && (
@@ -98,7 +99,7 @@ export default async function AdminLobbiesPage({
                     <form action={deleteLobbyAction}>
                       <input type="hidden" name="id" value={l.id} />
                       <input type="hidden" name="gameId" value={game.id} />
-                      <button className="text-xs text-[color:var(--danger)] hover:underline">ลบ</button>
+                      <SubmitButton className="text-xs text-[color:var(--danger)] hover:underline" pendingText="กำลังลบ...">ลบ</SubmitButton>
                     </form>
                   </div>
 
@@ -133,9 +134,9 @@ export default async function AdminLobbiesPage({
                       </table>
                     </div>
                     {groupTeams.length >= 2 && (
-                      <button className="rsl-btn rsl-btn-primary text-sm mt-3">
+                      <SubmitButton className="rsl-btn rsl-btn-primary text-sm mt-3" pendingText="กำลังบันทึก...">
                         {done ? "แก้ไข/บันทึกผลใหม่" : "บันทึกผล (อัปเดตคะแนน)"}
-                      </button>
+                      </SubmitButton>
                     )}
                   </form>
                 </div>

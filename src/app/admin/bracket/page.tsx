@@ -8,6 +8,7 @@ import {
   setRoundScheduleAction,
 } from "../actions";
 import { StatusBadge } from "@/components/ui";
+import { SubmitButton } from "@/components/SubmitButton";
 import { fmtDateTime, toDatetimeLocalTH } from "@/lib/format";
 
 export const dynamic = "force-dynamic";
@@ -96,7 +97,7 @@ export default async function AdminBracketPage({
                       <option value="7">7</option>
                     </select>
                   </label>
-                  <button className="rsl-btn rsl-btn-primary text-sm">สร้างสาย</button>
+                  <SubmitButton className="rsl-btn rsl-btn-primary text-sm" pendingText="กำลังสร้างสาย...">สร้างสาย</SubmitButton>
                 </div>
               </>
             )}
@@ -130,7 +131,7 @@ export default async function AdminBracketPage({
                           className="bg-[color:var(--bg-soft)] border border-[color:var(--border)] rounded-lg px-2 py-1.5 text-sm outline-none focus:border-[color:var(--brand)]"
                         />
                       </div>
-                      <button className="rsl-btn rsl-btn-ghost text-sm">ตั้งเวลาทั้งรอบ</button>
+                      <SubmitButton className="rsl-btn rsl-btn-ghost text-sm" pendingText="กำลังบันทึก...">ตั้งเวลาทั้งรอบ</SubmitButton>
                     </form>
                   </div>
 
@@ -165,7 +166,7 @@ export default async function AdminBracketPage({
                                 <label className="block text-[10px] text-[color:var(--text-dim)]">{m.awayTeam?.tag}</label>
                                 <input name="awayScore" type="number" min={0} max={9} required className="w-14 bg-[color:var(--bg-soft)] border border-[color:var(--border)] rounded-lg px-2 py-1.5 text-center outline-none" />
                               </div>
-                              <button className="rsl-btn rsl-btn-primary text-sm">บันทึก</button>
+                              <SubmitButton className="rsl-btn rsl-btn-primary text-sm" pendingText="กำลังบันทึก...">บันทึก</SubmitButton>
                             </form>
                           )}
                         </div>

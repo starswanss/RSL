@@ -8,6 +8,7 @@ import { ImportTeamsForm } from "./ImportTeamsForm";
 import { DeleteAllTeamsButton } from "./DeleteAllTeamsButton";
 import { TeamEditForm } from "./TeamEditForm";
 import { Pill } from "@/components/ui";
+import { SubmitButton } from "@/components/SubmitButton";
 
 export const dynamic = "force-dynamic";
 export const metadata = { title: "จัดการทีม" };
@@ -77,7 +78,7 @@ export default async function AdminTeamsPage({
                   <form action={deleteTeamAction}>
                     <input type="hidden" name="id" value={t.id} />
                     <input type="hidden" name="gameId" value={game.id} />
-                    <button className="text-xs text-[color:var(--danger)] hover:underline">ลบทีม</button>
+                    <SubmitButton className="text-xs text-[color:var(--danger)] hover:underline" pendingText="กำลังลบ...">ลบทีม</SubmitButton>
                   </form>
                 </div>
 
@@ -98,7 +99,7 @@ export default async function AdminTeamsPage({
                       <form action={deletePlayerAction} className="inline">
                         <input type="hidden" name="id" value={p.id} />
                         <input type="hidden" name="gameId" value={game.id} />
-                        <button className="w-5 h-5 rounded-full hover:bg-[color:var(--danger)]/20 text-[color:var(--danger)]">×</button>
+                        <SubmitButton className="w-5 h-5 rounded-full hover:bg-[color:var(--danger)]/20 text-[color:var(--danger)]" pendingText="">×</SubmitButton>
                       </form>
                     </span>
                   ))}
@@ -112,7 +113,7 @@ export default async function AdminTeamsPage({
                   <label className="flex items-center gap-1 text-xs text-[color:var(--text-dim)]">
                     <input type="checkbox" name="isCaptain" /> กัปตัน
                   </label>
-                  <button className="rsl-btn rsl-btn-ghost text-sm">+ ผู้เล่น</button>
+                  <SubmitButton className="rsl-btn rsl-btn-ghost text-sm" pendingText="กำลังเพิ่ม...">+ ผู้เล่น</SubmitButton>
                 </form>
               </div>
             ))}

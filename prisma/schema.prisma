@@ -203,6 +203,18 @@ model BrSubmissionRow {
   kills        Int          @default(0)
 }
 
+// ข้อมูลสำรอง (snapshot ทั้งเว็บ) — เก็บแยกตามปี ใช้ก่อนรีเซ็ต/ขึ้นซีซั่นใหม่
+model Backup {
+  id        String   @id @default(cuid())
+  year      Int
+  label     String
+  data      String // JSON snapshot
+  sizeBytes Int      @default(0)
+  createdAt DateTime @default(now())
+
+  @@index([year])
+}
+
 // ตั้งค่าเว็บ (แถวเดียว id = "site")
 model SiteSetting {
   id        String   @id @default("site")

@@ -4,6 +4,7 @@ import { getActiveGames } from "@/lib/games";
 import { prisma } from "@/lib/prisma";
 import { FORMAT_LABEL } from "@/lib/games";
 import { getBrFinalStandings } from "@/lib/br";
+import { getBracketPodium } from "@/lib/bracket";
 import { TAGS, TTL } from "@/lib/cache";
 import { Pill, TeamLogo } from "@/components/ui";
 
@@ -33,6 +34,15 @@ export default async function HomePage() {
     )
   ).filter((f) => f.rows.length > 0);
 
+  // อันดับของเกมสายแพ้คัดออก — เฉพาะเกมที่แข่งจบ (รอบชิงอนุมัติผลแล้ว)
+  const podiums = (
+    await Promise.all(
+      games
+        .filter((g) => g.format === "BRACKET")
+        .map(async (g) => ({ game: g, podium: await getBracketPodium(g.id) }))
+    )
+  ).filter((p) => p.podium !== null);
+
   return (
     <div className="max-w-6xl mx-auto px-4">
       <section className="py-14 sm:py-20 text-center">
@@ -47,6 +57,87 @@ export default async function HomePage() {
           เลือกเกมด้านล่างเพื่อเข้าสู่หน้าเฉพาะของเกมนั้น
         </p>
       </section>
+
+      {/* 🏆 อันดับเกมสายแพ้คัดออก (แชมป์/รองแชมป์) — เฉพาะเกมที่แข่งจบแล้ว */}
+      {podiums.length > 0 && (
+        <section className="pb-14">
+          <div className="grid md:grid-cols-2 gap-5">
+            {podiums.map(({ game, podium }) => (
+              <div
+                key={game.id}
+                className="rsl-card p-6 bg-gradient-to-br from-[color:var(--brand)]/10 to-transparent"
+                style={{ borderTop: `4px solid ${game.color}` }}
+              >
+                <Pill>ผลการแข่งขัน</Pill>
+                <h2 className="mt-3 text-2xl font-extrabold">
+                  🏆 <span className="rsl-gradient-text">{game.name}</span>
+                </h2>
+
+                {/* แชมป์ */}
+                <div className="mt-4 flex items-center gap-3 rounded-xl bg-[color:var(--bg-soft)] border border-[color:var(--brand)]/40 px-4 py-3">
+                  <span className="text-3xl">🥇</span>
+                  <TeamLogo tag={podium!.champion.tag} logoUrl={podium!.champion.logoUrl} size={40} />
+                  <div className="min-w-0">
+                    <p className="text-xs text-[color:var(--text-dim)]">แชมป์</p>
+                    <Link
+                      href={`/${game.slug}/teams/${podium!.champion.id}`}
+                      className="font-extrabold text-lg rsl-gradient-text truncate block hover:underline"
+                    >
+                      {podium!.champion.name}
+                    </Link>
+                  </div>
+                </div>
+
+                {/* รองแชมป์ */}
+                {podium!.runnerUp && (
+                  <div className="mt-2 flex items-center gap-3 px-4 py-2.5 rounded-xl bg-[color:var(--bg-soft)]/60">
+                    <span className="text-xl">🥈</span>
+                    <TeamLogo tag={podium!.runnerUp.tag} logoUrl={podium!.runnerUp.logoUrl} size={28} />
+                    <div className="min-w-0">
+                      <p className="text-[11px] text-[color:var(--text-dim)]">รองแชมป์</p>
+                      <Link
+                        href={`/${game.slug}/teams/${podium!.runnerUp.id}`}
+                        className="font-semibold truncate block hover:text-[color:var(--brand)]"
+                      >
+                        {podium!.runnerUp.name}
+                      </Link>
+                    </div>
+                  </div>
+                )}
+
+                {/* อันดับ 3 ร่วม */}
+                {podium!.thirds.length > 0 && (
+                  <div className="mt-2 px-4 py-2.5 rounded-xl bg-[color:var(--bg-soft)]/60">
+                    <p className="text-[11px] text-[color:var(--text-dim)] mb-1.5">🥉 อันดับ 3 ร่วม</p>
+                    <div className="flex flex-wrap gap-2">
+                      {podium!.thirds.map((t) => (
+                        <Link
+                          key={t.id}
+                          href={`/${game.slug}/teams/${t.id}`}
+                          className="inline-flex items-center gap-1.5 text-sm hover:text-[color:var(--brand)]"
+                        >
+                          <TeamLogo tag={t.tag} logoUrl={t.logoUrl} size={22} />
+                          <span className="font-medium">{t.name}</span>
+                        </Link>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                <div className="mt-4 text-right">
+                  <Link
+                    href={`/${game.slug}/bracket`}
+                    className="text-sm font-semibold hover:underline"
+                    style={{ color: game.color }}
+                  >
+                    ดูสายการแข่งขัน →
+                  </Link>
+                </div>
+              </div>
+            ))}
+          </div>
+        </section>
+      )}
 
       {/* 🏆 ตารางคะแนนรอบชิงชนะเลิศ — โชว์เด่นบนหน้าแรก */}
       {finalsBoards.map(({ game, rows }) => {

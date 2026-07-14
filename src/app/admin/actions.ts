@@ -26,6 +26,7 @@ import { parseDatetimeLocalTH } from "@/lib/format";
 import { fileToDataUrl } from "@/lib/image";
 import { setSiteLogo } from "@/lib/settings";
 import { utapi } from "@/lib/uploadthing-server";
+import { createBackup } from "@/lib/backup";
 
 export type ActionState = { ok: boolean; message: string };
 
@@ -191,9 +192,9 @@ export async function createGameAction(
   return { ok: true, message: "เพิ่มเกมเรียบร้อย" };
 }
 
-// ล้างไฟล์หลักฐานทั้งหมดออกจาก UploadThing (กันพื้นที่เต็ม)
-export async function clearAllProofFilesAction() {
-  await assertAdmin();
+// ===================== BACKUP & RESET =====================
+// เก็บ key ไฟล์หลักฐานทั้งหมด (ใช้ตอนล้าง/รีเซ็ต)
+async function collectProofKeys(): Promise<string[]> {
   const [bracketSubs, brSubs] = await Promise.all([
     prisma.resultSubmission.findMany({
       where: { proofFiles: { not: null } },
@@ -211,6 +212,81 @@ export async function clearAllProofFilesAction() {
       for (const f of arr) if (f.key) keys.push(f.key);
     } catch {}
   }
+  return keys;
+}
+
+// สำรองข้อมูลทั้งเว็บ (ติดป้ายปี)
+export async function createBackupAction(formData: FormData) {
+  await assertAdmin();
+  const year = Number(formData.get("year") || new Date().getFullYear());
+  const label = String(formData.get("label") || "").trim() || `สำรองข้อมูลปี ${year}`;
+  if (!Number.isInteger(year) || year < 2000 || year > 3000)
+    back("/admin/settings", "ปีไม่ถูกต้อง", true);
+  const res = await createBackup(year, label);
+  back(
+    "/admin/settings",
+    `สำรองข้อมูลปี ${year} แล้ว (${res.summary.teams} ทีม, ${res.summary.players} ผู้เล่น, ${res.summary.matches} แมตช์, ${res.summary.brMatches} ล็อบบี้)`
+  );
+}
+
+export async function deleteBackupAction(formData: FormData) {
+  await assertAdmin();
+  const id = String(formData.get("id") || "");
+  await prisma.backup.delete({ where: { id } });
+  back("/admin/settings", "ลบข้อมูลสำรองแล้ว");
+}
+
+/**
+ * รีเซ็ตเว็บ — ล้างข้อมูลการแข่งขันทั้งหมดเพื่อเริ่มซีซั่นใหม่
+ * ลบ: ทีม/ผู้เล่น/แมตช์/ล็อบบี้/ผล/ผลที่ส่งเข้ามา/ข่าว + ไฟล์หลักฐานบน UploadThing
+ * เก็บไว้: เกม, บัญชีแอดมิน, โลโก้เว็บ, และข้อมูลสำรองทุกชุด
+ * สำรองข้อมูลอัตโนมัติก่อนลบเสมอ
+ */
+export async function resetSiteAction(formData: FormData) {
+  await assertAdmin();
+  const confirmText = String(formData.get("confirmText") || "").trim();
+  if (confirmText !== "รีเซ็ต")
+    back("/admin/settings", 'ยกเลิก: ต้องพิมพ์ "รีเซ็ต" เพื่อยืนยัน', true);
+
+  // 1) สำรองข้อมูลอัตโนมัติก่อน (กันพลาด)
+  const year = Number(formData.get("year") || new Date().getFullYear());
+  const backup = await createBackup(
+    Number.isInteger(year) ? year : new Date().getFullYear(),
+    `อัตโนมัติ — ก่อนรีเซ็ตเว็บ`
+  );
+
+  // 2) ลบไฟล์หลักฐานบน UploadThing (กันพื้นที่ค้าง)
+  const keys = await collectProofKeys();
+  try {
+    if (keys.length) await utapi.deleteFiles(keys);
+  } catch {
+    // ลบไฟล์ไม่สำเร็จก็ยังรีเซ็ตต่อได้ (ข้อมูลสำรองไว้แล้ว)
+  }
+
+  // 3) ล้างข้อมูลการแข่งขัน (เรียงตามความสัมพันธ์)
+  await prisma.$transaction([
+    prisma.brSubmissionRow.deleteMany(),
+    prisma.brSubmission.deleteMany(),
+    prisma.brTeamResult.deleteMany(),
+    prisma.brMatch.deleteMany(),
+    prisma.resultSubmission.deleteMany(),
+    prisma.match.deleteMany(),
+    prisma.player.deleteMany(),
+    prisma.team.deleteMany(),
+    prisma.news.deleteMany(),
+  ]);
+
+  bust(TAGS.teams, TAGS.matches, TAGS.lobbies, TAGS.news, TAGS.games);
+  back(
+    "/admin/settings",
+    `รีเซ็ตเว็บเรียบร้อย · สำรองข้อมูลไว้แล้ว (${(backup.sizeBytes / 1024).toFixed(0)} KB) · ลบไฟล์หลักฐาน ${keys.length} ไฟล์`
+  );
+}
+
+// ล้างไฟล์หลักฐานทั้งหมดออกจาก UploadThing (กันพื้นที่เต็ม)
+export async function clearAllProofFilesAction() {
+  await assertAdmin();
+  const keys = await collectProofKeys();
   try {
     if (keys.length) await utapi.deleteFiles(keys);
   } catch {

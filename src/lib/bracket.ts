@@ -1,8 +1,51 @@
+import { unstable_cache } from "next/cache";
 import { prisma } from "./prisma";
+import { TAGS, TTL } from "./cache";
+
+export type PodiumTeam = { id: string; name: string; tag: string; logoUrl: string | null };
+export type Podium = {
+  champion: PodiumTeam;
+  runnerUp: PodiumTeam | null;
+  thirds: PodiumTeam[]; // ผู้แพ้รอบรองฯ (อันดับ 3 ร่วม)
+};
+
+/**
+ * อันดับของเกมแบบสายแพ้คัดออก — คืนค่าเฉพาะเมื่อ "แข่งจบ" แล้ว
+ * (รอบชิงต้อง COMPLETED = ส่งผลและอนุมัติครบ) ไม่งั้นคืน null
+ */
+export async function computeBracketPodium(gameId: string): Promise<Podium | null> {
+  const matches = await prisma.match.findMany({
+    where: { gameId },
+    orderBy: [{ roundOrder: "desc" }, { bracketOrder: "asc" }],
+    include: { homeTeam: true, awayTeam: true, winner: true },
+  });
+  if (matches.length === 0) return null;
+
+  const lastRound = matches[0].roundOrder;
+  const final = matches.find((m) => m.roundOrder === lastRound);
+  if (!final || final.status !== "COMPLETED" || !final.winner) return null;
+
+  const runnerUp =
+    final.homeTeamId === final.winnerId ? final.awayTeam : final.homeTeam;
+
+  // ผู้แพ้รอบรองชนะเลิศ = อันดับ 3 ร่วม
+  const thirds = matches
+    .filter((m) => m.roundOrder === lastRound - 1 && m.status === "COMPLETED" && m.winnerId)
+    .map((m) => (m.homeTeamId === m.winnerId ? m.awayTeam : m.homeTeam))
+    .filter((t): t is NonNullable<typeof t> => Boolean(t));
+
+  return { champion: final.winner, runnerUp, thirds };
+}
+
+export const getBracketPodium = unstable_cache(
+  (gameId: string) => computeBracketPodium(gameId),
+  ["bracket-podium"],
+  { revalidate: TTL.matches, tags: [TAGS.matches, TAGS.teams] }
+);
 
 // ลำดับวางสายมาตรฐาน (seed 1 เจอ seed ต่ำสุด ฯลฯ)
 function seedOrder(size: number): number[] {
-  let rounds = Math.log2(size);
+  const rounds = Math.log2(size);
   let pls = [1, 2];
   for (let r = 1; r < rounds; r++) {
     const sum = pls.length * 2 + 1;

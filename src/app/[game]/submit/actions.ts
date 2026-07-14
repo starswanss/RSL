@@ -4,6 +4,7 @@ import { z } from "zod";
 import { prisma } from "@/lib/prisma";
 import { revalidatePath, updateTag } from "next/cache";
 import { TAGS } from "@/lib/cache";
+import { getLobbyTeams } from "@/lib/br";
 import {
   getClientMeta,
   detectBot,
@@ -146,9 +147,8 @@ export async function submitBrResult(
   if (lobby.status === "COMPLETED")
     return { ok: false, message: "ล็อบบี้นี้มีผลอนุมัติแล้ว" };
 
-  const teams = await prisma.team.findMany({
-    where: { gameId: lobby.gameId, groupName: lobby.groupName },
-  });
+  // รอบแบ่งสาย = ทีมในกลุ่ม · รอบชิง = ทีมที่ผ่านเข้าชิง
+  const teams = await getLobbyTeams(lobby);
 
   const rows: { teamId: string; placement: number; kills: number }[] = [];
   for (const t of teams) {

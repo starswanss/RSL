@@ -66,13 +66,25 @@ export default async function SubmitPage({
     orderBy: [{ groupName: "asc" }, { matchNo: "asc" }],
   });
   const teams = await prisma.team.findMany({ where: { gameId: g.id } });
-  const options: LobbyOption[] = lobbies.map((l) => ({
-    id: l.id,
-    label: `${l.title || `เกมที่ ${l.matchNo}`} — สาย ${l.groupName}`,
-    teams: teams
-      .filter((t) => t.groupName === l.groupName)
-      .map((t) => ({ id: t.id, name: t.name, tag: t.tag })),
-  }));
+  const options: LobbyOption[] = lobbies.map((l) => {
+    // รอบชิง = เฉพาะทีมที่ผ่านเข้าชิง · รอบแบ่งสาย = ทีมในกลุ่ม
+    let lobbyTeams = teams.filter((t) => t.groupName === l.groupName);
+    if (l.stage === "FINAL") {
+      let ids: string[] = [];
+      try {
+        ids = JSON.parse(l.finalistIds || "[]");
+      } catch {}
+      lobbyTeams = teams.filter((t) => ids.includes(t.id));
+    }
+    return {
+      id: l.id,
+      label:
+        l.stage === "FINAL"
+          ? `🏆 รอบชิงชนะเลิศ — ${l.title || `เกมที่ ${l.matchNo}`}`
+          : `${l.title || `เกมที่ ${l.matchNo}`} — สาย ${l.groupName}`,
+      teams: lobbyTeams.map((t) => ({ id: t.id, name: t.name, tag: t.tag })),
+    };
+  });
 
   return (
     <div className="max-w-3xl">

@@ -31,6 +31,53 @@ const getGameTeams = unstable_cache(
   { revalidate: TTL.teams, tags: [TAGS.teams] }
 );
 
+type Lobby = Awaited<ReturnType<typeof getLobbies>>[number];
+
+function LobbyCard({ l }: { l: Lobby }) {
+  return (
+    <div className="rsl-card p-4">
+      <div className="flex items-center justify-between mb-2">
+        <span className="font-semibold">{l.title || `เกมที่ ${l.matchNo}`}</span>
+        <div className="flex items-center gap-2 text-xs text-[color:var(--text-dim)]">
+          <span>{fmtDateTime(l.scheduledAt)}</span>
+          <StatusBadge status={l.status} />
+        </div>
+      </div>
+      {l.results.length > 0 && (
+        <div className="overflow-x-auto">
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="text-[color:var(--text-dim)] text-xs border-b border-[color:var(--border)]">
+                <th className="text-left px-2 py-1">อันดับ</th>
+                <th className="text-left px-2 py-1">ทีม</th>
+                <th className="px-2 py-1">คิลล์</th>
+                <th className="px-2 py-1">แต้ม</th>
+              </tr>
+            </thead>
+            <tbody>
+              {l.results.map((r) => (
+                <tr key={r.id} className="border-b border-[color:var(--border)] last:border-0">
+                  <td className="px-2 py-1.5 font-bold">#{r.placement}</td>
+                  <td className="px-2 py-1.5">
+                    <span className="flex items-center gap-2">
+                      <TeamLogo tag={r.team.tag} logoUrl={r.team.logoUrl} size={22} />
+                      {r.team.name}
+                    </span>
+                  </td>
+                  <td className="px-2 py-1.5 text-center">{r.kills}</td>
+                  <td className="px-2 py-1.5 text-center font-bold text-[color:var(--brand)]">
+                    {r.points}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+    </div>
+  );
+}
+
 export default async function BrMatchesPage({
   params,
 }: {
@@ -54,7 +101,19 @@ export default async function BrMatchesPage({
     );
   }
 
-  const byGroup = lobbies.reduce<Record<string, typeof lobbies>>((acc, l) => {
+  const groupStage = lobbies.filter((l) => l.stage !== "FINAL");
+  const finalLobbies = lobbies.filter((l) => l.stage === "FINAL");
+
+  // ทีมที่ผ่านเข้ารอบชิง (เก็บไว้ที่ล็อบบี้รอบชิง)
+  let finalistIds: string[] = [];
+  if (finalLobbies.length) {
+    try {
+      finalistIds = JSON.parse(finalLobbies[0].finalistIds || "[]");
+    } catch {}
+  }
+  const finalists = teams.filter((t) => finalistIds.includes(t.id));
+
+  const byGroup = groupStage.reduce<Record<string, typeof lobbies>>((acc, l) => {
     (acc[l.groupName] ??= []).push(l);
     return acc;
   }, {});
@@ -104,48 +163,7 @@ export default async function BrMatchesPage({
 
           <div className="space-y-4">
             {ls.map((l) => (
-              <div key={l.id} className="rsl-card p-4">
-                <div className="flex items-center justify-between mb-2">
-                  <span className="font-semibold">
-                    {l.title || `เกมที่ ${l.matchNo}`}
-                  </span>
-                  <div className="flex items-center gap-2 text-xs text-[color:var(--text-dim)]">
-                    <span>{fmtDateTime(l.scheduledAt)}</span>
-                    <StatusBadge status={l.status} />
-                  </div>
-                </div>
-                {l.results.length > 0 && (
-                  <div className="overflow-x-auto">
-                    <table className="w-full text-sm">
-                      <thead>
-                        <tr className="text-[color:var(--text-dim)] text-xs border-b border-[color:var(--border)]">
-                          <th className="text-left px-2 py-1">อันดับ</th>
-                          <th className="text-left px-2 py-1">ทีม</th>
-                          <th className="px-2 py-1">คิลล์</th>
-                          <th className="px-2 py-1">แต้ม</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {l.results.map((r) => (
-                          <tr key={r.id} className="border-b border-[color:var(--border)] last:border-0">
-                            <td className="px-2 py-1.5 font-bold">#{r.placement}</td>
-                            <td className="px-2 py-1.5">
-                              <span className="flex items-center gap-2">
-                                <TeamLogo tag={r.team.tag} logoUrl={r.team.logoUrl} size={22} />
-                                {r.team.name}
-                              </span>
-                            </td>
-                            <td className="px-2 py-1.5 text-center">{r.kills}</td>
-                            <td className="px-2 py-1.5 text-center font-bold text-[color:var(--brand)]">
-                              {r.points}
-                            </td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
-                )}
-              </div>
+              <LobbyCard key={l.id} l={l} />
             ))}
             {ls.length === 0 && (
               <p className="text-sm text-[color:var(--text-dim)]">ยังไม่มีล็อบบี้ในสายนี้</p>
@@ -154,6 +172,40 @@ export default async function BrMatchesPage({
         </section>
         );
       })}
+
+      {/* รอบชิงชนะเลิศ */}
+      {finalLobbies.length > 0 && (
+        <section className="mb-8">
+          <h3 className="text-lg font-bold mb-3">
+            🏆 <span className="rsl-gradient-text">รอบชิงชนะเลิศ</span>
+            <span className="ml-2 text-sm font-normal text-[color:var(--text-dim)]">
+              ({finalists.length} ทีม)
+            </span>
+          </h3>
+
+          {finalists.length > 0 && (
+            <div className="flex flex-wrap gap-2 mb-4">
+              {finalists.map((t) => (
+                <Link
+                  key={t.id}
+                  href={`/${g.slug}/teams/${t.id}`}
+                  className="inline-flex items-center gap-2 bg-[color:var(--bg-soft)] border border-[color:var(--brand)]/40 rounded-full pl-1.5 pr-3 py-1 text-sm hover:border-[color:var(--brand)] transition-colors"
+                >
+                  <TeamLogo tag={t.tag} logoUrl={t.logoUrl} size={22} />
+                  <span className="font-medium">{t.name}</span>
+                  <span className="text-xs text-[color:var(--text-dim)]">{t.tag}</span>
+                </Link>
+              ))}
+            </div>
+          )}
+
+          <div className="space-y-4">
+            {finalLobbies.map((l) => (
+              <LobbyCard key={l.id} l={l} />
+            ))}
+          </div>
+        </section>
+      )}
     </div>
   );
 }

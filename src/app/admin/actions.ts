@@ -13,7 +13,13 @@ import {
 } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { approveSubmission, rejectSubmission } from "@/lib/matches";
-import { approveBrSubmission, rejectBrSubmission, computePoints } from "@/lib/br";
+import {
+  approveBrSubmission,
+  rejectBrSubmission,
+  computePoints,
+  computeBrStandings,
+  getLobbyTeams,
+} from "@/lib/br";
 import { generateBracket } from "@/lib/bracket";
 import { parseTeamsWorkbook } from "@/lib/import";
 import { parseDatetimeLocalTH } from "@/lib/format";
@@ -544,24 +550,97 @@ export async function recordBracketResultAction(formData: FormData) {
 }
 
 // ===================== LOBBIES (BR) =====================
-export async function createLobbyAction(formData: FormData) {
+// กำหนดว่า "สายนี้แข่งกี่เกม" แล้วสร้างล็อบบี้ให้ครบทีเดียว (ไม่ต้องสร้างทีละอัน)
+export async function setGroupRoundsAction(formData: FormData) {
   await assertAdmin();
   const gameId = String(formData.get("gameId") || "");
   const groupName = String(formData.get("groupName") || "A").trim() || "A";
-  const matchNo = Number(formData.get("matchNo") || 1);
-  const title = String(formData.get("title") || "").trim() || null;
-  const scheduledRaw = String(formData.get("scheduledAt") || "").trim();
-  await prisma.brMatch.create({
-    data: {
+  const rounds = Number(formData.get("rounds") || 1);
+  const startRaw = String(formData.get("startAt") || "").trim();
+  const gap = Number(formData.get("gapMinutes") || 0);
+  if (!Number.isInteger(rounds) || rounds < 1 || rounds > 30)
+    back(`/admin/lobbies?game=${gameId}`, "จำนวนเกมต้องอยู่ระหว่าง 1–30", true);
+
+  const existing = await prisma.brMatch.findMany({
+    where: { gameId, groupName, stage: "GROUP" },
+    select: { matchNo: true },
+  });
+  const have = new Set(existing.map((e) => e.matchNo));
+  const start = startRaw ? parseDatetimeLocalTH(startRaw) : null;
+  const step = Number.isInteger(gap) && gap > 0 ? gap : 0;
+
+  const toCreate = [];
+  for (let n = 1; n <= rounds; n++) {
+    if (have.has(n)) continue;
+    toCreate.push({
       gameId,
       groupName,
-      matchNo: Number.isInteger(matchNo) ? matchNo : 1,
-      title,
-      scheduledAt: scheduledRaw ? new Date(scheduledRaw) : null,
-    },
-  });
+      stage: "GROUP",
+      matchNo: n,
+      title: `เกมที่ ${n}`,
+      scheduledAt: start ? new Date(start.getTime() + (n - 1) * step * 60000) : null,
+    });
+  }
+  if (toCreate.length === 0)
+    back(`/admin/lobbies?game=${gameId}`, `สาย ${groupName} มีครบ ${rounds} เกมอยู่แล้ว`);
+
+  await prisma.brMatch.createMany({ data: toCreate });
   bust(TAGS.lobbies);
-  back(`/admin/lobbies?game=${gameId}`, "สร้างล็อบบี้เรียบร้อย");
+  back(
+    `/admin/lobbies?game=${gameId}`,
+    `สาย ${groupName}: สร้างเพิ่ม ${toCreate.length} เกม (รวมเป็น ${rounds} เกม)`
+  );
+}
+
+// สร้างรอบชิงชนะเลิศ: เอา top N ของแต่ละสายมารวมเป็นสายใหม่ (คะแนนเริ่มนับใหม่)
+export async function createFinalsAction(formData: FormData) {
+  await assertAdmin();
+  const gameId = String(formData.get("gameId") || "");
+  const topN = Number(formData.get("topN") || 2);
+  const rounds = Number(formData.get("rounds") || 1);
+  const startRaw = String(formData.get("startAt") || "").trim();
+  const gap = Number(formData.get("gapMinutes") || 0);
+  if (!Number.isInteger(topN) || topN < 1 || topN > 8)
+    back(`/admin/lobbies?game=${gameId}`, "ทีมที่เข้าชิงต่อสายต้องอยู่ระหว่าง 1–8", true);
+  if (!Number.isInteger(rounds) || rounds < 1 || rounds > 30)
+    back(`/admin/lobbies?game=${gameId}`, "จำนวนเกมรอบชิงต้องอยู่ระหว่าง 1–30", true);
+
+  // อันดับจากรอบแบ่งสาย (stage=GROUP เท่านั้น)
+  const standings = await computeBrStandings(gameId);
+  const groups = Object.keys(standings).sort();
+  const finalistIds: string[] = [];
+  for (const g of groups) {
+    for (const row of standings[g].slice(0, topN)) finalistIds.push(row.teamId);
+  }
+  if (finalistIds.length < 2)
+    back(`/admin/lobbies?game=${gameId}`, "ยังไม่มีทีม/ผลรอบแบ่งสายพอจะจัดรอบชิง", true);
+
+  const start = startRaw ? parseDatetimeLocalTH(startRaw) : null;
+  const step = Number.isInteger(gap) && gap > 0 ? gap : 0;
+
+  await prisma.$transaction(async (tx) => {
+    // ล้างรอบชิงเดิม (ถ้าเคยสร้าง) แล้วสร้างใหม่ทั้งหมด
+    await tx.brMatch.deleteMany({ where: { gameId, stage: "FINAL" } });
+    for (let n = 1; n <= rounds; n++) {
+      await tx.brMatch.create({
+        data: {
+          gameId,
+          groupName: "FINAL",
+          stage: "FINAL",
+          finalistIds: JSON.stringify(finalistIds),
+          matchNo: n,
+          title: `รอบชิงชนะเลิศ เกมที่ ${n}`,
+          scheduledAt: start ? new Date(start.getTime() + (n - 1) * step * 60000) : null,
+        },
+      });
+    }
+  });
+
+  bust(TAGS.lobbies);
+  back(
+    `/admin/lobbies?game=${gameId}`,
+    `สร้างรอบชิงแล้ว: ${finalistIds.length} ทีม (${groups.length} สาย × top ${topN}) · ${rounds} เกม`
+  );
 }
 
 export async function deleteLobbyAction(formData: FormData) {
@@ -581,9 +660,8 @@ export async function recordBrResultAction(formData: FormData) {
   const lobby = await prisma.brMatch.findUnique({ where: { id: brMatchId } });
   if (!lobby) back(`/admin/lobbies?game=${gameId}`, "ไม่พบล็อบบี้", true);
 
-  const teams = await prisma.team.findMany({
-    where: { gameId, groupName: lobby!.groupName },
-  });
+  // รอบแบ่งสาย = ทีมในกลุ่ม · รอบชิง = ทีมที่ผ่านเข้าชิง
+  const teams = await getLobbyTeams(lobby!);
   const rows: { teamId: string; placement: number; kills: number; points: number }[] = [];
   for (const t of teams) {
     const placement = Number(formData.get(`placement_${t.id}`));

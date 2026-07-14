@@ -50,8 +50,9 @@ export async function computeBrStandings(
     orderBy: [{ groupName: "asc" }, { name: "asc" }],
   });
 
+  // นับเฉพาะรอบแบ่งสาย — ผลรอบชิงแยกต่างหาก (ไม่เอามาปน)
   const results = await prisma.brTeamResult.findMany({
-    where: { brMatch: { gameId } },
+    where: { brMatch: { gameId, stage: "GROUP" } },
   });
 
   const rows: Record<string, BrStandingRow> = {};
@@ -105,6 +106,101 @@ export const getBrStandings = unstable_cache(
   ["br-standings"],
   { revalidate: TTL.lobbies, tags: [TAGS.teams, TAGS.lobbies] }
 );
+
+/**
+ * ตารางคะแนน "รอบชิงชนะเลิศ" — นับเฉพาะผลของล็อบบี้ stage=FINAL
+ * (เริ่มนับใหม่ ไม่รวมคะแนนรอบแบ่งสาย)
+ */
+export async function computeBrFinalStandings(
+  gameId: string
+): Promise<BrStandingRow[]> {
+  const finals = await prisma.brMatch.findMany({
+    where: { gameId, stage: "FINAL" },
+    select: { id: true, finalistIds: true },
+  });
+  if (finals.length === 0) return [];
+
+  const ids = new Set<string>();
+  for (const f of finals) {
+    try {
+      for (const id of JSON.parse(f.finalistIds || "[]") as string[]) ids.add(id);
+    } catch {}
+  }
+  if (ids.size === 0) return [];
+
+  const [teams, results] = await Promise.all([
+    prisma.team.findMany({ where: { id: { in: [...ids] } } }),
+    prisma.brTeamResult.findMany({
+      where: { brMatchId: { in: finals.map((f) => f.id) } },
+    }),
+  ]);
+
+  const rows: Record<string, BrStandingRow> = {};
+  for (const t of teams) {
+    rows[t.id] = {
+      teamId: t.id,
+      name: t.name,
+      tag: t.tag,
+      logoUrl: t.logoUrl,
+      matches: 0,
+      totalPoints: 0,
+      placePoints: 0,
+      kills: 0,
+      booyah: 0,
+      bestPlacement: null,
+    };
+  }
+  for (const r of results) {
+    const row = rows[r.teamId];
+    if (!row) continue;
+    row.matches++;
+    row.totalPoints += r.points;
+    row.placePoints += placementPoints(r.placement);
+    row.kills += r.kills;
+    if (r.placement === 1) row.booyah++;
+    if (row.bestPlacement === null || r.placement < row.bestPlacement)
+      row.bestPlacement = r.placement;
+  }
+  return Object.values(rows).sort(
+    (a, b) =>
+      b.totalPoints - a.totalPoints ||
+      b.booyah - a.booyah ||
+      b.kills - a.kills ||
+      a.name.localeCompare(b.name)
+  );
+}
+
+export const getBrFinalStandings = unstable_cache(
+  (gameId: string) => computeBrFinalStandings(gameId),
+  ["br-final-standings"],
+  { revalidate: TTL.lobbies, tags: [TAGS.teams, TAGS.lobbies] }
+);
+
+// หาทีมที่ลงแข่งในล็อบบี้: รอบแบ่งสาย = ทีมในกลุ่ม, รอบชิง = ทีมที่ผ่านเข้าชิง
+export type LobbyLike = {
+  gameId: string;
+  groupName: string;
+  stage: string;
+  finalistIds: string | null;
+};
+
+export async function getLobbyTeams(lobby: LobbyLike) {
+  if (lobby.stage === "FINAL") {
+    let ids: string[] = [];
+    try {
+      ids = JSON.parse(lobby.finalistIds || "[]");
+    } catch {}
+    if (!ids.length) return [];
+    return prisma.team.findMany({
+      where: { id: { in: ids } },
+      orderBy: { name: "asc" },
+    });
+  }
+  return prisma.team.findMany({
+    where: { gameId: lobby.gameId, groupName: lobby.groupName },
+    orderBy: { name: "asc" },
+  });
+}
 
 /**
  * อนุมัติผลทั้งล็อบบี้: คำนวณแต้ม บันทึกผลอย่างเป็นทางการ

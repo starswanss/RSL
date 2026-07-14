@@ -143,7 +143,9 @@ model BrMatch {
   id          String    @id @default(cuid())
   game        Game      @relation(fields: [gameId], references: [id], onDelete: Cascade)
   gameId      String
-  groupName   String    @default("A")
+  groupName   String    @default("A") // stage=FINAL จะใช้ "FINAL"
+  stage       String    @default("GROUP") // GROUP (รอบแบ่งสาย) | FINAL (รอบชิง)
+  finalistIds String? // JSON: teamIds ที่เข้ารอบชิง (ใช้เฉพาะ stage=FINAL)
   matchNo     Int       @default(1) // เกมที่เท่าไรของกลุ่ม
   title       String? // เช่น "Day 1 - Match 3"
   scheduledAt DateTime?
